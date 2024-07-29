@@ -21,7 +21,7 @@ from controllers.pid_controller import PIDController
 from planners.trajopt_planner import TrajoptPlanner
 from learners.phri_learner import PHRILearner
 from utils import ros2_utils, openrave_utils
-from utils.environment import Environment
+from ferl_ros2.ferl.utils.old_environment import Environment
 from utils.trajectory import Trajectory
 
 import numpy as np

@@ -1,7 +1,7 @@
 import numpy as np
 import math
 from openrave_utils import *
-from environment import Environment
+from ferl_ros2.ferl.utils.old_environment import Environment
 from planners.trajopt_planner import TrajoptPlanner
 import torch
 import os, sys
