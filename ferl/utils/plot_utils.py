@@ -3,7 +3,7 @@ import plotly.express as px
 import pandas as pd
 import os
 import math
-from openrave_utils import robotToCartesian
+from ferl.utils.openrave_utils import robotToCartesian
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 

@@ -1,7 +1,7 @@
 import openravepy
 from openravepy import *
-from prpy.bind import bind_subclass
-from archierobot import ArchieRobot
+# from prpy.bind import bind_subclass
+# from archierobot import ArchieRobot
 # from catkin.find_in_workspaces import find_in_workspaces
 from ament_index_python.packages import get_package_share_directory
 import numpy as np
@@ -30,12 +30,12 @@ def initialize(model_filename='jaco', envXML=None, viewer=True):
 
 	# Assumes the robot files are located in the data folder of the
 	# kinova_description package in the catkin workspace.
-	urdf_uri = 'package://iact_control/src/data/'+model_filename+'.urdf'
-	srdf_uri = 'package://iact_control/src/data/'+model_filename+'.srdf'
+	urdf_uri = os.path.join(get_package_share_directory('kortex_description'), '/robots', '/gen3_2f85.urdf')
+	srdf_uri = os.path.join(get_package_share_directory('kinova_gen3_7dof_robotiq_2f_85_moveit_config'), '/config', '/gen3.srdf')
 	or_urdf = openravepy.RaveCreateModule(env, 'urdf')
 	robot_name = or_urdf.SendCommand('load {:s} {:s}'.format(urdf_uri, srdf_uri))
 	robot = env.GetRobot(robot_name)
-	bind_subclass(robot, ArchieRobot)
+	# bind_subclass(robot, ArchieRobot)
 
 	robot.SetActiveDOFs(np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))
 	robot.SetDOFValues(robot_starting_dofs)
@@ -148,7 +148,8 @@ def plotCupTraj(env,robot,bodies,waypts,color=[0,1,0], increment=1):
 		manipTf = links[9].GetTransform() 
 
 		# load mug into environment
-		objects_path = os.path.join(get_package_share_directory('iact_control'),'/data')
+		# objects_path = os.path.join(get_package_share_directory('iact_control'),'/data')
+		objects_path = os.path.join(get_package_share_directory('ferl'), '/data/objects')
 		env.Load('{:s}/mug.xml'.format(objects_path))
 		mug = env.GetKinBody('mug')
 		mug.GetLinks()[0].GetGeometries()[0].SetDiffuseColor(np.array(color))
@@ -174,7 +175,8 @@ def plotMug(env, bodies, transform, color=[1,0,0]):
 	"""
 	Plots mug at specific transform.
 	"""
-	objects_path = os.path.join(get_package_share_directory('iact_control'),'/data')
+	# objects_path = os.path.join(get_package_share_directory('iact_control'),'/data')
+	objects_path = os.path.join(get_package_share_directory('ferl'), '/data/objects')
 	env.Load('{:s}/mug.xml'.format(objects_path))
 	mug = env.GetKinBody('mug')
 	mug.GetLinks()[0].GetGeometries()[0].SetDiffuseColor(np.array(color))
@@ -224,7 +226,8 @@ def plotTable(env):
 	Plots the robot table in OpenRAVE.
 	"""
 	# Load table into environment
-	objects_path = os.path.join(get_package_share_directory('iact_control'),'/data')
+	# objects_path = os.path.join(get_package_share_directory('iact_control'),'/data')
+	objects_path = os.path.join(get_package_share_directory('ferl'), '/data/objects')
 	env.Load('{:s}/table.xml'.format(objects_path))
 	table = env.GetKinBody('table')
 	table.SetTransform(np.array([[0.0, 1.0,  0.0, -0.8128/2], #should be negative 1?
@@ -239,7 +242,8 @@ def plotCabinet(env):
 	Plots the cabinet in OpenRAVE.
 	"""
 	# Load table into environment
-	objects_path = os.path.join(get_package_share_directory('iact_control'),'/data')
+	# objects_path = os.path.join(get_package_share_directory('iact_control'),'/data')
+	objects_path = os.path.join(get_package_share_directory('ferl'), '/data/objects')
 	env.Load('{:s}/cabinet.xml'.format(objects_path))
 	cabinet = env.GetKinBody('cabinet')
 	cabinet.SetTransform(np.array([[0.0, -1.0,  0.0, 0.6],
@@ -251,7 +255,8 @@ def plotCabinet(env):
 
 def plotMug(env):
 	# Load table into environment
-    objects_path = os.path.join(get_package_share_directory('iact_control'),'/data')
+    # objects_path = os.path.join(get_package_share_directory('iact_control'),'/data')
+    objects_path = os.path.join(get_package_share_directory('ferl'), '/data/objects')
     env.Load('{:s}/mug.xml'.format(objects_path))
 
 def plotMan(env):
@@ -259,7 +264,8 @@ def plotMan(env):
     Plots a human in OpenRAVE.
     """
     # Load table into environment
-    objects_path = os.path.join(get_package_share_directory('iact_control'),'/data')
+    # objects_path = os.path.join(get_package_share_directory('iact_control'),'/data')
+    objects_path = os.path.join(get_package_share_directory('ferl'), '/data/objects')
     env.Load('{:s}/manifest.xml'.format(objects_path))
 
 def plotTableMount(env,bodies):

@@ -7,10 +7,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 import plotly.graph_objects as go
 
-# stuff for TarjOpt
-from src.planners.trajopt_planner import TrajoptPlanner
-from src.utils.plot_utils import *
-from src.utils.environment import Environment
+# stuff for TrajOpt
+from ferl.planners.trajopt_planner import TrajoptPlanner
+from ferl.utils.plot_utils import *
+from ferl.utils.environment import Environment
 
 
 def map_to_raw_dim(env, expert_demos):

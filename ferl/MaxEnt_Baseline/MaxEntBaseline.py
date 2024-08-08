@@ -1,5 +1,5 @@
 from baseline_utils import *
-from src.utils.transform_input import transform_input, get_subranges
+from ferl.utils.transform_input import transform_input, get_subranges
 import random
 import torch.optim as optim
 from tqdm import trange

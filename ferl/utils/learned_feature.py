@@ -5,8 +5,8 @@ import numpy as np
 import math
 from tqdm import trange
 import itertools
-from transform_input import transform_input, get_subranges
-from networks import DNN
+from ferl.utils.transform_input import transform_input, get_subranges
+from ferl.utils.networks import DNN
 from torch.utils.data import Dataset, DataLoader
 
 

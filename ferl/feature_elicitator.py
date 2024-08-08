@@ -12,16 +12,20 @@ import math
 import sys, select, os
 import time
 
+# srv imports
+from controller_manager_msgs.srv import SwitchController
+# from kortex_hardware.srv import ModeService
+
 # msg imports
-import kinova_msgs_ros2.msg
-from kinova_msgs_ros2.srv import *
+from sensor_msgs.msg import JointState
+from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
 # other defined imports
 from controllers.pid_controller import PIDController
 from planners.trajopt_planner import TrajoptPlanner
 from learners.phri_learner import PHRILearner
 from utils import ros2_utils, openrave_utils
-from ferl_ros2.ferl.utils.old_environment import Environment
+from utils.environment import Environment
 from utils.trajectory import Trajectory
 
 import numpy as np
@@ -189,12 +193,12 @@ class FeatureElicitator(Node):
         """
         # TODO: Figure out how to define the correct messages.
         # Create joint-velocity publisher.
-        self.vel_pub = self.create_publisher(kinova_msgs_ros2.msg.JointVelocity, self.prefix + '/in/joint_velocity', 1)
+        self.vel_pub = self.create_publisher(JointTrajectoryPoint, self.prefix + '/in/joint_velocity', 1)
 
         # Create subscriber to joint_angles.
-        self.joint_angles_sub = self.create_subscription(kinova_msgs_ros2.msg.JointAngles, self.prefix + '/out/joint_angles', self.joint_angles_callback, 1)
+        self.joint_angles_sub = self.create_subscription(JointState, self.prefix + '/out/joint_angles', self.joint_angles_callback, 1)
         # Create subscriber to joint_torques.
-        self.joint_torques_sub = self.create_subscription(kinova_msgs_ros2.msg.JointTorques, self.prefix + '/out/joint_torques', self.joint_torques_callback, 1)
+        self.joint_torques_sub = self.create_subscription(JointState, self.prefix + '/out/joint_torques', self.joint_torques_callback, 1)
 
     def joint_angles_callback(self, msg):
         """
@@ -204,7 +208,8 @@ class FeatureElicitator(Node):
 
         # Read the current joint angles from the robot.
         # TODO: Find a more generic way to do this for different dof robots.
-        curr_pos = np.array([msg.joint1, msg.joint2, msg.joint3, msg.joint4, msg.joint5, msg.joint6, msg.joint7]).reshape(7, 1)
+        curr_pos = np.array(msg.position).reshape(7,1)
+        # curr_pos = np.array([msg.joint1, msg.joint2, msg.joint3, msg.joint4, msg.joint5, msg.joint6, msg.joint7]).reshape(7, 1)
 
         # Convert to radians.
         curr_pos = curr_pos*(math.pi/180.0)
@@ -239,7 +244,8 @@ class FeatureElicitator(Node):
         """
 
         # Read the current joint torques from the robot.
-        torque_curr = np.array([msg.joint1, msg.joint2, msg.joint3, msg.joint4, msg.joint5, msg.joint6, msg.joint7]).reshape(7, 1)
+        torque_curr = np.array(msg.effort).reshape(7,1)
+        # torque_curr = np.array([msg.joint1, msg.joint2, msg.joint3, msg.joint4, msg.joint5, msg.joint6, msg.joint7]).reshape(7, 1)
         interaction = False
         for i in range(7):
             # Center torques around zero.
