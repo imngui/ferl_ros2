@@ -21,15 +21,22 @@ from sensor_msgs.msg import JointState
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
 # other defined imports
-from controllers.pid_controller import PIDController
-from planners.trajopt_planner import TrajoptPlanner
-from learners.phri_learner import PHRILearner
-from utils import ros2_utils, openrave_utils
-from utils.environment import Environment
-from utils.trajectory import Trajectory
+from ferl.controllers.pid_controller import PIDController
+from ferl.planners.trajopt_planner import TrajoptPlanner
+from ferl.learners.phri_learner import PHRILearner
+from ferl.utils import ros2_utils, openrave_utils
+from ferl.utils.environment import Environment
+from ferl.utils.trajectory import Trajectory
 
 import numpy as np
 import pickle
+
+def convert_string_array_to_dict(string_array):
+        feat_range_dict = {}
+        for item in string_array:
+            key, value = item.split(':')
+            feat_range_dict[key] = float(value)  # Convert the value to a float
+        return feat_range_dict
 
 class FeatureElicitator(Node):
 
@@ -50,44 +57,45 @@ class FeatureElicitator(Node):
 		Loading parameters and setting up variables from the ROS environment.
 		"""
         # Declare parameters
-        self.declare_parameter('setup.prefix', None)
-        self.declare_parameter('setup.model_filename', None)
-        self.declare_parameter('setup.object_centers', None)  # Declaring object_centers as a map
-        self.declare_parameter('setup.feat_list', None)
-        self.declare_parameter('setup.feat_weights', None)
-        self.declare_parameter('setup.start', None)
-        self.declare_parameter('setup.goal', None)
-        self.declare_parameter('setup.goal_pose', None)
-        self.declare_parameter('setup.T', None)
-        self.declare_parameter('setup.timestep', None)
-        self.declare_parameter('setup.save_dir', None)
-        self.declare_parameter('setup.INTERACTION_TORQUE_THRESHOLD', None)
-        self.declare_parameter('setup.INTERACTION_TORQUE_EPSILON', None)
-        self.declare_parameter('setup.FEAT_RANGE', None)  # Declaring FEAT_RANGE as a map
-        self.declare_parameter('setup.LF_dict', None)  # Declaring LF_dict as a map
-        self.declare_parameter('setup.CONFIDENCE_THRESHOLD', None)
-        self.declare_parameter('setup.N_QUERIES', None)
-        self.declare_parameter('setup.nb_layers', None)
-        self.declare_parameter('setup.nb_units', None)
-        self.declare_parameter('planner.type', None)
-        self.declare_parameter('planner.max_iter', None)
-        self.declare_parameter('planner.num_waypts', None)
-        self.declare_parameter('controller.type', None)
-        self.declare_parameter('controller.p_gain', None)
-        self.declare_parameter('controller.i_gain', None)
-        self.declare_parameter('controller.d_gain', None)
-        self.declare_parameter('controller.epsilon', None)
-        self.declare_parameter('controller.max_cmd', None)
-        self.declare_parameter('learner.type', None)
-        self.declare_parameter('learner.step_size', None)
-        self.declare_parameter('learner.alpha', None)
-        self.declare_parameter('learner.n', None)
-        self.declare_parameter('learner.P_beta', None)  # Declaring P_beta as a map
+        self.declare_parameter('setup.prefix')
+        self.declare_parameter('setup.model_filename')
+        self.declare_parameter('setup.object_centers')  # Declaring object_centers as a map
+        self.declare_parameter('setup.feat_list')
+        self.declare_parameter('setup.feat_weights')
+        self.declare_parameter('setup.start')
+        self.declare_parameter('setup.goal')
+        self.declare_parameter('setup.goal_pose')
+        self.declare_parameter('setup.T')
+        self.declare_parameter('setup.timestep')
+        self.declare_parameter('setup.save_dir')
+        self.declare_parameter('setup.INTERACTION_TORQUE_THRESHOLD')
+        self.declare_parameter('setup.INTERACTION_TORQUE_EPSILON')
+        self.declare_parameter('setup.FEAT_RANGE')  # Declaring FEAT_RANGE as a map
+        self.declare_parameter('setup.LF_dict')  # Declaring LF_dict as a map
+        self.declare_parameter('setup.CONFIDENCE_THRESHOLD')
+        self.declare_parameter('setup.N_QUERIES')
+        self.declare_parameter('setup.nb_layers')
+        self.declare_parameter('setup.nb_units')
+        self.declare_parameter('planner.type')
+        self.declare_parameter('planner.max_iter')
+        self.declare_parameter('planner.num_waypts')
+        self.declare_parameter('controller.type')
+        self.declare_parameter('controller.p_gain')
+        self.declare_parameter('controller.i_gain')
+        self.declare_parameter('controller.d_gain')
+        self.declare_parameter('controller.epsilon')
+        self.declare_parameter('controller.max_cmd')
+        self.declare_parameter('learner.type')
+        self.declare_parameter('learner.step_size')
+        self.declare_parameter('learner.alpha')
+        self.declare_parameter('learner.n')
+        self.declare_parameter('learner.P_beta')  # Declaring P_beta as a map
 
 
         # ----- General Setup ----- #
         self.prefix = self.get_parameter('setup.prefix').value
         pick = self.get_parameter('setup.start').value
+        print("pick: ", pick)
         self.start = np.array(pick)*(math.pi/180.0)
         place = self.get_parameter('setup.goal').value
         self.goal = np.array(place)*(math.pi/180.0)
@@ -105,9 +113,11 @@ class FeatureElicitator(Node):
         # Openrave parameters for the environment.
         model_filename = self.get_parameter('setup.model_filename').value
         object_centers = self.get_parameter('setup.object_centers').value
+        print("object_centers: ", object_centers)
         feat_list = self.get_parameter('setup.feat_list').value
         weights = self.get_parameter('setup.feat_weights').value
-        FEAT_RANGE = self.get_parameter('setup.FEAT_RANGE').value
+        FEAT_RANGE = convert_string_array_to_dict(self.get_parameter('setup.FEAT_RANGE').value)
+        print("FEAT_RANGE: ", FEAT_RANGE)
         feat_range = [FEAT_RANGE[feat_list[feat]] for feat in range(len(feat_list))]
         LF_dict = self.get_parameter('setup.LF_dict').value
         self.environment = Environment(model_filename, object_centers, feat_list, feat_range, np.array(weights), LF_dict)

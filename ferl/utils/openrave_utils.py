@@ -1,5 +1,6 @@
 import openravepy
 from openravepy import *
+from openravepy import RaveCreateModule
 # from prpy.bind import bind_subclass
 # from archierobot import ArchieRobot
 # from catkin.find_in_workspaces import find_in_workspaces
@@ -27,12 +28,18 @@ def initialize(model_filename='jaco', envXML=None, viewer=True):
 	env = openravepy.Environment()
 	if envXML is not None:
 		env.LoadURI(envXML)
+  
+	# openravepy.RaveInitialize(load_all_plugins=True)
+	print(env)
 
 	# Assumes the robot files are located in the data folder of the
 	# kinova_description package in the catkin workspace.
 	urdf_uri = os.path.join(get_package_share_directory('kortex_description'), '/robots', '/gen3_2f85.urdf')
 	srdf_uri = os.path.join(get_package_share_directory('kinova_gen3_7dof_robotiq_2f_85_moveit_config'), '/config', '/gen3.srdf')
-	or_urdf = openravepy.RaveCreateModule(env, 'urdf')
+	or_urdf = RaveCreateModule(env, 'urdf')
+	
+	print(or_urdf)
+	# input()
 	robot_name = or_urdf.SendCommand('load {:s} {:s}'.format(urdf_uri, srdf_uri))
 	robot = env.GetRobot(robot_name)
 	# bind_subclass(robot, ArchieRobot)
@@ -112,20 +119,20 @@ def poseToRobot(robot, pose):
 	Returns: robot configuration space IK solution
 	"""
 	manip = robot.GetActiveManipulator()
-	ikmodel = databases.inversekinematics.InverseKinematicsModel(robot,iktype=IkParameterization.Type.Translation3D)
+	ikmodel = openravepy.databases.inversekinematics.InverseKinematicsModel(robot,iktype=openravepy.IkParameterization.Type.Translation3D)
 	if not ikmodel.load():
 		ikmodel.autogenerate()
 
 	with robot: # lock environment and save robot state
-		ikparam = IkParameterization(pose,ikmodel.iktype) # build up the translation3d ik query
-		sols = manip.FindIKSolutions(ikparam, IkFilterOptions.CheckEnvCollisions) # get all solutions
+		ikparam = openravepy.IkParameterization(pose,ikmodel.iktype) # build up the translation3d ik query
+		sols = manip.FindIKSolutions(ikparam, openravepy.IkFilterOptions.CheckEnvCollisions) # get all solutions
 		return sols[0]
 
 def executePathSim(env,robot,waypts):
 	"""
 	Executes in the planned trajectory in simulation
 	"""
-	traj = RaveCreateTrajectory(env,'')
+	traj = openravepy.RaveCreateTrajectory(env,'')
 	traj.Init(robot.GetActiveConfigurationSpecification())
 	for i in range(len(waypts)):
 		traj.Insert(i, waypts[i])
@@ -273,7 +280,7 @@ def plotTableMount(env,bodies):
 	Plots the robot table mount in OpenRAVE.
 	"""
 	# Create robot base attachment
-	body = RaveCreateKinBody(env, '')
+	body = openravepy.RaveCreateKinBody(env, '')
 	body.InitFromBoxes(np.array([[0,0,0, 0.3048/2,0.8128/2,0.1016/2]]))
 	body.SetTransform(np.array([[1.0, 0.0,  0.0, 0],
 			                     [0.0, 1.0,  0.0, 0],
@@ -291,7 +298,7 @@ def plotLaptop(env,bodies,pos):
 	Plots the robot table mount in OpenRAVE.
 	"""
 	# Create robot base attachment
-	body = RaveCreateKinBody(env, '')
+	body = openravepy.RaveCreateKinBody(env, '')
 	#12 x 9 x 1 in, 0.3048 x 0.2286 x 0.0254 m
 	# divide by 2: 0.1524 x 0.1143 x 0.0127
 	#20 in from robot base
