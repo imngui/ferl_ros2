@@ -1,7 +1,7 @@
 import math
 import time
 
-import pid
+from ferl.controllers import pid
 
 import numpy as np
 
