@@ -4,11 +4,10 @@ feature_elicitator:
             prefix: 'j2s7s300_driver'
             model_filename: "jaco_dynamics"
             object_centers: 
-                # HUMAN_CENTER: [-0.2,-0.5,0.6]
-                # LAPTOP_CENTER: [0.0,-0.8,0.0]
                 - "HUMAN_CENTER:[-0.2,-0.5,0.6]"
                 - "LAPTOP_CENTER:[0.0,-0.8,0.0]"
-
+                # HUMAN_CENTER: [-0.2,-0.5,0.6]
+                # LAPTOP_CENTER: [0.0,-0.8,0.0]
             feat_list: ["table"]
             feat_weights: [0.0]
             start: [104.2, 151.6, 183.8, 101.8, 224.2, 216.9, 310.8]
@@ -28,15 +27,19 @@ feature_elicitator:
                 - "efficiency:0.22"
                 - "proxemics:0.3"
                 - "betweenobjects:0.2"
-            # FEAT_RANGE:
-            #     table: 0.98
-            #     coffee: 1.0
-            #     laptop: 0.3
-            #     human: 0.3
-            #     efficiency: 0.22
-            #     proxemics: 0.3
-            #     betweenobjects: 0.2
-            LF_dict: {'bet_data': 5, 'sin': False, 'cos': False, 'rpy': False, 'lowdim': False, 'EErot': True, 'noxyz': False, 'norot': False, 'noangles': True, '6D_laptop': False, '6D_human': False, '9D_coffee': False}
+            LF_dict:
+                - "bet_data:5"
+                - "sin:False"
+                - "cos:False"
+                - "rpy:False"
+                - "lowdim:False"
+                - "EErot:True"
+                - "noxyz:False"
+                - "norot:False"
+                - "noangles:True"
+                - "6D_laptop:False"
+                - "6D_human:False"
+                - "9D_coffee:False"
             CONFIDENCE_THRESHOLD: 1.0
             N_QUERIES: 10
             nb_layers: 3
@@ -63,6 +66,12 @@ feature_elicitator:
             step_size: 1.0
             alpha: -0.01
             n: 5
-            P_beta: {"table0": [1.83701582842, 0.0, 0.150583961407], "table1": [2.8, 0.0, 0.4212940611], "coffee0": [1.67451171875, 0.0, 0.05], "coffee1": [2.8169921875, 0.0, 0.3], "human0": [2.14693459432, 0.0, 0.227738059531], "human1": [5.0458984375, 0.0, 0.25]}
+            P_beta:
+            - "table0:[1.83701582842, 0.0, 0.150583961407]"
+            - "table1:[2.8, 0.0, 0.4212940611]"
+            - "coffee0:[1.67451171875, 0.0, 0.05]"
+            - "coffee1:[2.8169921875, 0.0, 0.3]"
+            - "human0:[2.14693459432, 0.0, 0.227738059531]"
+            - "human1:[5.0458984375, 0.0, 0.25]"
 
 

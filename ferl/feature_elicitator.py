@@ -30,13 +30,43 @@ from ferl.utils.trajectory import Trajectory
 
 import numpy as np
 import pickle
+import ast
 
 def convert_string_array_to_dict(string_array):
-        feat_range_dict = {}
-        for item in string_array:
-            key, value = item.split(':')
-            feat_range_dict[key] = float(value)  # Convert the value to a float
-        return feat_range_dict
+    feat_range_dict = {}
+    for item in string_array:
+        key, value = item.split(':')
+        feat_range_dict[key] = float(value)  # Convert the value to a float
+    return feat_range_dict
+    
+def convert_string_array_to_dict_of_lists(string_array):
+    object_centers_dict = {}
+    for item in string_array:
+        key, value = item.split(':')
+        # Use ast.literal_eval to safely evaluate the string as a Python list
+        object_centers_dict[key] = ast.literal_eval(value)
+    return object_centers_dict
+    
+def get_parameter_as_dict(string_array):
+    """
+    Convert a StringArray parameter to a dictionary with the appropriate Python types.
+    """
+    converted_dict = {}
+    for item in string_array:
+        key, value_str = item.split(':', 1)  # Split on the first colon
+        converted_dict[key] = convert_string_to_appropriate_type(value_str)
+    return converted_dict
+
+def convert_string_to_appropriate_type(value_str):
+    """
+    Attempt to convert a string to its appropriate Python type.
+    """
+    try:
+        # Try to evaluate the string as a Python literal (e.g., list, dict, int, float, bool, None)
+        return ast.literal_eval(value_str)
+    except (ValueError, SyntaxError):
+        # If evaluation fails, return the string as is
+        return value_str
 
 class FeatureElicitator(Node):
 
@@ -95,7 +125,6 @@ class FeatureElicitator(Node):
         # ----- General Setup ----- #
         self.prefix = self.get_parameter('setup.prefix').value
         pick = self.get_parameter('setup.start').value
-        print("pick: ", pick)
         self.start = np.array(pick)*(math.pi/180.0)
         place = self.get_parameter('setup.goal').value
         self.goal = np.array(place)*(math.pi/180.0)
@@ -112,14 +141,14 @@ class FeatureElicitator(Node):
 
         # Openrave parameters for the environment.
         model_filename = self.get_parameter('setup.model_filename').value
-        object_centers = self.get_parameter('setup.object_centers').value
-        print("object_centers: ", object_centers)
+        object_centers = get_parameter_as_dict(self.get_parameter('setup.object_centers').value)
+        # print("object_centers: ", object_centers)
         feat_list = self.get_parameter('setup.feat_list').value
         weights = self.get_parameter('setup.feat_weights').value
-        FEAT_RANGE = convert_string_array_to_dict(self.get_parameter('setup.FEAT_RANGE').value)
-        print("FEAT_RANGE: ", FEAT_RANGE)
+        FEAT_RANGE = get_parameter_as_dict(self.get_parameter('setup.FEAT_RANGE').value)
+        # print("FEAT_RANGE: ", FEAT_RANGE)
         feat_range = [FEAT_RANGE[feat_list[feat]] for feat in range(len(feat_list))]
-        LF_dict = self.get_parameter('setup.LF_dict').value
+        LF_dict = get_parameter_as_dict(self.get_parameter('setup.LF_dict').value)
         self.environment = Environment(model_filename, object_centers, feat_list, feat_range, np.array(weights), LF_dict)
         # TODO: Setup Openrave env.
         # TODO: Change to MoveIt! env.
@@ -190,7 +219,7 @@ class FeatureElicitator(Node):
         # Retrieve learner specific parameters.
         constants = {}
         constants["step_size"] = self.get_parameter('learner.step_size').value
-        constants["P_beta"] = self.get_parameter('learner.P_beta').value
+        constants["P_beta"] = get_parameter_as_dict(self.get_parameter('learner.P_beta').value)
         constants["alpha"] = self.get_parameter('learner.alpha').value
         constants["n"] = self.get_parameter('learner.n').value
         self.feat_method = self.get_parameter('learner.type').value
