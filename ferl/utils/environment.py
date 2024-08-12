@@ -1,12 +1,12 @@
 import torch
 import os
+from enum import Enum
 
 import openravepy
 from openravepy import *
 
 from ferl.utils.openrave_utils import *
 from ferl.utils.learned_feature import LearnedFeature
-
 
 class Environment(object):
     """
@@ -60,8 +60,9 @@ class Environment(object):
 
         # Initialize LF_dict optionally for learned features.
         self.LF_dict = LF_dict
-    
-	# -- Compute features for all waypoints in trajectory. -- #
+
+
+    # -- Compute features for all waypoints in trajectory. -- #
     def featurize(self, waypts, feat_idx=None):
         """
         Computes the features for a given trajectory.
@@ -146,23 +147,13 @@ class Environment(object):
         """
         # Manually compute a link transform given theta, alpha, and D (a is assumed to be 0).
         def transform(theta, alpha, D):
-            # T[0][0] = torch.cos(theta)
-            # T[0][1] = -torch.sin(theta)*torch.cos(alpha)
-            # T[0][2] = torch.sin(theta)*torch.sin(alpha)
-            # T[1][0] = torch.sin(theta)
-            # T[1][1] = torch.cos(theta)*torch.cos(alpha)
-            # T[1][2] = -torch.cos(theta)*torch.sin(alpha)
-            # T[2][1] = torch.sin(alpha)
-            # T[2][2] = torch.cos(alpha)
             T = torch.zeros([4, 4])
             T[0][0] = torch.cos(theta)
-            T[0][1] = -torch.cos(alpha)*torch.sin(theta)
-            T[0][2] = torch.sin(alpha)*torch.sin(theta)
-            T[0][3] = alpha*torch.cos(theta)
+            T[0][1] = -torch.sin(theta)*torch.cos(alpha)
+            T[0][2] = torch.sin(theta)*torch.sin(alpha)
             T[1][0] = torch.sin(theta)
-            T[1][1] = torch.cos(alpha)*torch.cos(theta)
-            T[1][2] = -torch.sin(alpha)*torch.cos(theta)
-            T[1][3] = alpha*torch.sin(theta)
+            T[1][1] = torch.cos(theta)*torch.cos(alpha)
+            T[1][2] = -torch.cos(theta)*torch.sin(alpha)
             T[2][1] = torch.sin(alpha)
             T[2][2] = torch.cos(alpha)
             T[2][3] = D
@@ -177,8 +168,7 @@ class Environment(object):
         # For each transform, we much be careful which D and/or e we pass in.
         # The manual is sort of correct about how to do this but not 100% right.
         # Contact abobu@berkeley.edu if you have questions about this code.
-        e = torch.tensor(np.array([0.0016, 0.0098]), requires_grad=True)
-        # D = torch.tensor(np.array([0.15675, 0.11875, 0.205, 0.205, 0.2073, 0.10375, 0.10375]), requires_grad=True)
+        e = torch.tensor(np.array([0.0016, 0.0098]), requires_grad=True) # TODO what is this?
         D = torch.tensor(np.array([0.15675, 0.11875, 0.205, 0.205, 0.2073, 0.10375, 0.10375]), requires_grad=True)
         alpha = torch.tensor(np.array([np.pi/2, np.pi/2, np.pi/2, np.pi/2, np.pi/2, np.pi/2, np.pi]), requires_grad=True)
         sign1 = torch.tensor(np.array([[-1,1,-1,-1], [1,-1,1,1], [-1,1,-1,-1], [1,1,1,1]]), dtype=torch.float64, requires_grad=True)
@@ -187,50 +177,61 @@ class Environment(object):
 
         # Now construct the list of transforms for all joints.
 
+        # TODO check if this is correct, just taking DH parameters from the gen3 manual, don't know what signs are
+        # https://www.kinovarobotics.com/uploads/User-Guide-Gen3-R07.pdf
+
         ### T01 transform from base to joint 1 ###
-        T01 = transform(waypt[0], alpha[0], -D[0])
+        # T01 = transform(waypt[0], alpha[0], -D[0])
+        T01 = transform(waypt[0], np.pi, 0.0) # to frame 0 from base (TODO should this be multiplied? and should it be 0 or waypoint?)
         Tall = (swap_cols(T01, 1, 2) * sign1).unsqueeze(0)
 
-        ### T02 transform from base to joint 2 ###
-        T01 = transform(waypt[0], alpha[0], -(D[0]+D[1]))
-        T12 = transform(waypt[1], alpha[1], -e[0])
+        # T02 transform from base to joint 2 ###
+        # T01 = transform(waypt[0], alpha[0], -(D[0]+D[1]))
+        T01 = transform(waypt[0], np.pi/2, -(0.1564 + 0.1284))
+        # T12 = transform(waypt[1], alpha[1], -e[0])
+        T12 = transform(waypt[1] + np.pi, np.pi/2, -(0.0054 + 0.0064))
         T02 = torch.matmul(T01, T12)
         Tall = torch.cat((Tall, (swap_cols(T02, 1, 2) * sign2).unsqueeze(0)))
 
         ### T03 transform from base to joint 3 ###
-        T23 = transform(waypt[2], alpha[2], -D[2])
+        # T23 = transform(waypt[2], alpha[2], -D[2])
+        T23 = transform(waypt[2] + np.pi, np.pi/2, -(0.2104 + 0.2104))
         T03 = torch.matmul(T02, T23)
         Tall = torch.cat((Tall, (swap_cols(T03, 1, 2) * sign2).unsqueeze(0)))
 
         ### T04 transform from base to joint 4 ###
-        T23 = transform(waypt[2], alpha[2], -(D[2]+D[3]))
-        T34 = transform(waypt[3], alpha[3], 0.0)
-        T03 = torch.matmul(T02, T23)
+        # T23 = transform(waypt[2], alpha[2], -(D[2]+D[3])) # TODO why is this here twice?
+        # T34 = transform(waypt[3], alpha[3], 0.0)
+        T34 = transform(waypt[3] + np.pi, np.pi/2, -(0.0064 + 0.0064))
+        # T03 = torch.matmul(T02, T23)
         T04 = torch.matmul(T03, T34)
         Tall = torch.cat((Tall, (swap_cols(T04, 1, 2) * sign1).unsqueeze(0)))
 
         ### T05 transform from base to joint 5 ###
-        T34 = transform(waypt[3], alpha[3], -(e[0]+e[1]))
-        T45 = transform(waypt[4], alpha[4], -D[4])
-        T04 = torch.matmul(T03, T34)
+        # T34 = transform(waypt[3], alpha[3], -(e[0]+e[1]))
+        # T45 = transform(waypt[4], alpha[4], -D[4])
+        T45 = transform(waypt[4] + np.pi, np.pi/2, -(0.2084 + 0.1059))
+        # T04 = torch.matmul(T03, T34)
         T05 = torch.matmul(T04, T45)
         Tall = torch.cat((Tall, (swap_cols(T05, 1, 2) * sign2).unsqueeze(0)))
 
         ### T06 transform from base to joint 6 ###
-        T45 = transform(waypt[4], alpha[4], -(D[4]+D[5]))
-        T56 = transform(waypt[5], alpha[5], 0.0)
-        T05 = torch.matmul(T04, T45)
+        # T45 = transform(waypt[4], alpha[4], -(D[4]+D[5]))
+        # T56 = transform(waypt[5], alpha[5], 0.0)
+        T56 = transform(waypt[5] + np.pi, np.pi/2, 0.0)
+        # T05 = torch.matmul(T04, T45)
         T06 = torch.matmul(T05, T56)
         Tall = torch.cat((Tall, (swap_cols(T06, 1, 2) * sign1).unsqueeze(0)))
 
         ### T07 transform from base to joint 7 ###
-        T67 = transform(waypt[6], alpha[6], -D[6])
+        # T67 = transform(waypt[6], alpha[6], -D[6])
+        T67 = transform(waypt[6] + np.pi, np.pi, -(0.1059 + 0.0615))
         T07 = torch.matmul(T06, T67)
         Tall = torch.cat((Tall, (T07 * sign3).unsqueeze(0)))
 
         return Tall
 
-	# -- Instantiate a new learned feature -- #
+    # -- Instantiate a new learned feature -- #
 
     def new_learned_feature(self, nb_layers, nb_units, checkpoint_name=None):
         """
@@ -254,7 +255,7 @@ class Environment(object):
 
         self.feature_func_list.append(self.learned_features[-1].function)
 
-	# -- Efficiency -- #
+    # -- Efficiency -- #
 
     def efficiency_features(self, waypt):
         """
@@ -268,7 +269,7 @@ class Environment(object):
 
         return np.linalg.norm(waypt[:7] - waypt[7:])**2
 
-	# -- Distance to Robot Base (origin of world) -- #
+    # -- Distance to Robot Base (origin of world) -- #
 
     def origin_features(self, waypt):
         """
@@ -289,7 +290,7 @@ class Environment(object):
         EEcoord_y = np.linalg.norm(coords[6])
         return EEcoord_y
 
-	# -- Distance to Table -- #
+    # -- Distance to Table -- #
 
     def table_features(self, waypt, prev_waypt=None):
         """
@@ -309,7 +310,7 @@ class Environment(object):
         EEcoord_z = coords[6][2]
         return EEcoord_z
 
-	# -- Coffee (or z-orientation of end-effector) -- #
+    # -- Coffee (or z-orientation of end-effector) -- #
 
     def coffee_features(self, waypt):
         """
@@ -330,7 +331,7 @@ class Environment(object):
         Rx = EE_link.GetTransform()[:3,0]
         return 1 - EE_link.GetTransform()[:3,0].dot([0,0,1])
 
-	# -- Distance to Laptop -- #
+    # -- Distance to Laptop -- #
 
     def laptop_features(self, waypt):
         """
@@ -354,7 +355,7 @@ class Environment(object):
             return 0
         return -dist
 
-	# -- Distance to Human -- #
+    # -- Distance to Human -- #
 
     def human_features(self, waypt):
         """
@@ -378,7 +379,7 @@ class Environment(object):
             return 0
         return -dist
 
-	# -- Human Proxemics -- #
+    # -- Human Proxemics -- #
 
     def proxemics_features(self, waypt):
         """
@@ -405,7 +406,7 @@ class Environment(object):
             return 0
         return -dist
 
-	# -- Between 2-objects -- #
+    # -- Between 2-objects -- #
 
     def betweenobjects_features(self, waypt):
         """
@@ -447,7 +448,7 @@ class Environment(object):
             return -dist2
         return -min(dist1, dist2)
 
-	# ---- Custom environmental constraints --- #
+    # ---- Custom environmental constraints --- #
 
     def table_constraint(self, waypt):
         """
@@ -485,9 +486,9 @@ class Environment(object):
         world_dir = self.robot.GetLinks()[7].GetTransform()[:3,:3].dot([1,0,0])
         return np.array([np.cross(self.robot.GetJoints()[i].GetAxis(), world_dir)[:2] for i in range(7)]).T.copy()
 
-	# ---- Helper functions ---- #
+    # ---- Helper functions ---- #
 
-    def update_1curr_pos(self, curr_pos):
+    def update_curr_pos(self, curr_pos):
         """
         Updates DOF values in OpenRAVE simulation based on curr_pos.
         ----
@@ -502,4 +503,4 @@ class Environment(object):
         Destroys openrave thread and environment for clean shutdown.
         """
         self.env.Destroy()
-        openravepy.RaveDestroy() # destroy the runtime
+        RaveDestroy() # destroy the runtime
