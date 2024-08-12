@@ -15,9 +15,9 @@ logging.getLogger('prpy.planning.base').addHandler(logging.NullHandler())
 
 robot_starting_dofs = np.array([-1, 2, 0, 2, 0, 4, 0, 1.11022302e-16,  -1.11022302e-16, 3.33066907e-16])
 
-def initialize(model_filename='jaco', envXML=None, viewer=True):
+def initialize(model_filename='gen3', envXML=None, viewer=True):
 	'''
-	Load and configure the JACO robot. If envXML is not None, loads environment.
+	Load and configure the GEN3 robot. If envXML is not None, loads environment.
 	Returns robot and environment.
 	-----
 	NOTE:
