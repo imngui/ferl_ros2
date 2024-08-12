@@ -5,8 +5,8 @@ from enum import Enum
 import openravepy
 from openravepy import *
 
-from openrave_utils import *
-from learned_feature import LearnedFeature
+from ferl.utils.openrave_utils import *
+from ferl.utils.learned_feature import LearnedFeature
 
 class Environment(object):
     """
