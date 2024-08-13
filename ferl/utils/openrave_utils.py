@@ -4,7 +4,7 @@ from openravepy import RaveCreateModule, RaveLoadPlugin
 # from prpy.bind import bind_subclass
 # from archierobot import ArchieRobot
 # from catkin.find_in_workspaces import find_in_workspaces
-from ament_index_python.packages import get_package_share_directory
+from ament_index_python.packages import get_package_share_directory, get_package_prefix
 import numpy as np
 import logging
 import math
@@ -38,8 +38,11 @@ def initialize(model_filename='gen3', envXML=None, viewer=True):
 	srdf_uri = os.path.join(get_package_share_directory('kinova_gen3_7dof_robotiq_2f_85_moveit_config'), 'config', 'gen3.srdf')
 	# print(openravepy.databases)
 	# print(dir(openravepy))
-	print(os.path.join(get_package_share_directory('or_urdf'), 'lib', 'openrave-', 'or_urdf_plugin.so'))
-	RaveLoadPlugin(os.path.join(get_package_share_directory('or_urdf'), 'lib', 'openrave-', 'or_urdf_plugin.so'))
+	print(get_package_prefix('or_urdf'))
+
+	print(os.path.join(get_package_prefix('or_urdf'), 'lib', 'openrave-', 'or_urdf_plugin.so'))
+	found = RaveLoadPlugin(os.path.join(get_package_prefix('or_urdf'), 'lib', 'openrave-', 'or_urdf_plugin.so'))
+	print("Found plugin: " + str(found))
 	# print(env.GetModules())
 	# print(dir(env))
 	or_urdf = RaveCreateModule(env,'urdf')
