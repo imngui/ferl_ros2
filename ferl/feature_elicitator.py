@@ -6,7 +6,7 @@ import torch
 
 import rclpy
 from rclpy.node import Node
-# from rclpy.parameter import Parameter
+from rcl_interfaces.msg import ParameterDescriptor # Enables the description of parameters
 
 import math
 import sys, select, os
@@ -87,39 +87,39 @@ class FeatureElicitator(Node):
 		Loading parameters and setting up variables from the ROS environment.
 		"""
         # Declare parameters
-        self.declare_parameter('setup.prefix')
-        self.declare_parameter('setup.model_filename')
-        self.declare_parameter('setup.object_centers')  # Declaring object_centers as a map
-        self.declare_parameter('setup.feat_list')
-        self.declare_parameter('setup.feat_weights')
-        self.declare_parameter('setup.start')
-        self.declare_parameter('setup.goal')
-        self.declare_parameter('setup.goal_pose')
-        self.declare_parameter('setup.T')
-        self.declare_parameter('setup.timestep')
-        self.declare_parameter('setup.save_dir')
-        self.declare_parameter('setup.INTERACTION_TORQUE_THRESHOLD')
-        self.declare_parameter('setup.INTERACTION_TORQUE_EPSILON')
-        self.declare_parameter('setup.FEAT_RANGE')  # Declaring FEAT_RANGE as a map
-        self.declare_parameter('setup.LF_dict')  # Declaring LF_dict as a map
-        self.declare_parameter('setup.CONFIDENCE_THRESHOLD')
-        self.declare_parameter('setup.N_QUERIES')
-        self.declare_parameter('setup.nb_layers')
-        self.declare_parameter('setup.nb_units')
-        self.declare_parameter('planner.type')
-        self.declare_parameter('planner.max_iter')
-        self.declare_parameter('planner.num_waypts')
-        self.declare_parameter('controller.type')
-        self.declare_parameter('controller.p_gain')
-        self.declare_parameter('controller.i_gain')
-        self.declare_parameter('controller.d_gain')
-        self.declare_parameter('controller.epsilon')
-        self.declare_parameter('controller.max_cmd')
-        self.declare_parameter('learner.type')
-        self.declare_parameter('learner.step_size')
-        self.declare_parameter('learner.alpha')
-        self.declare_parameter('learner.n')
-        self.declare_parameter('learner.P_beta')  # Declaring P_beta as a map
+        self.declare_parameter('setup.prefix', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('setup.model_filename', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('setup.object_centers', descriptor=ParameterDescriptor(dynamic_typing=True))  # Declaring object_centers as a map
+        self.declare_parameter('setup.feat_list', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('setup.feat_weights', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('setup.start', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('setup.goal', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('setup.goal_pose', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('setup.T', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('setup.timestep', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('setup.save_dir', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('setup.INTERACTION_TORQUE_THRESHOLD', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('setup.INTERACTION_TORQUE_EPSILON', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('setup.FEAT_RANGE', descriptor=ParameterDescriptor(dynamic_typing=True))  # Declaring FEAT_RANGE as a map
+        self.declare_parameter('setup.LF_dict', descriptor=ParameterDescriptor(dynamic_typing=True))  # Declaring LF_dict as a map
+        self.declare_parameter('setup.CONFIDENCE_THRESHOLD', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('setup.N_QUERIES', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('setup.nb_layers', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('setup.nb_units', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('planner.type', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('planner.max_iter', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('planner.num_waypts', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('controller.type', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('controller.p_gain', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('controller.i_gain', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('controller.d_gain', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('controller.epsilon', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('controller.max_cmd', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('learner.type', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('learner.step_size', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('learner.alpha', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('learner.n', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('learner.P_beta', descriptor=ParameterDescriptor(dynamic_typing=True))  # Declaring P_beta as a map
 
 
         # ----- General Setup ----- #
