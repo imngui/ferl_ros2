@@ -45,7 +45,7 @@ def initialize(model_filename='gen3', envXML=None, viewer=True):
 	print("Found plugin: " + str(found))
 	# print(env.GetModules())
 	# print(dir(env))
-	or_urdf = RaveCreateModule(env,'urdf')
+	or_urdf = RaveCreateModule(env,'urdf_')
 	
 	print(or_urdf)
 	# input()
