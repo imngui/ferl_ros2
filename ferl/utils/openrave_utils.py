@@ -34,7 +34,7 @@ def initialize(model_filename='gen3', envXML=None, viewer=True):
 
 	# Assumes the robot files are located in the data folder of the
 	# kinova_description package in the catkin workspace.
-	urdf_uri = os.path.join(get_package_share_directory('kortex_description'), 'robots', 'gen3.urdf')
+	urdf_uri = os.path.join(get_package_share_directory('kortex_description'), 'robots', 'gen3_2f85.urdf')
 	srdf_uri = os.path.join(get_package_share_directory('kinova_gen3_7dof_robotiq_2f_85_moveit_config'), 'config', 'gen3.srdf')
 	# print(openravepy.databases)
 	# print(dir(openravepy))
@@ -48,16 +48,21 @@ def initialize(model_filename='gen3', envXML=None, viewer=True):
 	or_urdf = RaveCreateModule(env,'urdf_')
 	
 	print(or_urdf)
+	print("urdf_uri: ", urdf_uri)
+	print("srdf_uri: ", srdf_uri)
 	# input()
-	robot_name = or_urdf.SendCommand('load {:s} {:s}'.format(urdf_uri, srdf_uri))
-	robot = env.GetRobot(robot_name)
+	created = or_urdf.SendCommand('LoadURI {:s} {:s}'.format(urdf_uri, srdf_uri))
+	print("Created robot:", created)
+	if not created:
+		raise Exception('Failed to load URDF and SRDF files.')
+	robot = env.GetRobots()[0]
 	# bind_subclass(robot, ArchieRobot)
 
 	robot.SetActiveDOFs(np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))
 	robot.SetDOFValues(robot_starting_dofs)
 
 	if viewer:
-		env.SetViewer('qtcoin')
+		env.SetViewer('qtosg')
 		viewer = env.GetViewer()
 		viewer.SetSize(700,500)
 		cam_params = np.array([[-0.99885711, -0.01248719, -0.0461361 , -0.18887213],
