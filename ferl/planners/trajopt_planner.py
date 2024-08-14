@@ -182,7 +182,7 @@ class TrajoptPlanner(object):
 		
 		# --- Initialization --- #
 		if len(start) < 10:
-			aug_start = np.append(start.reshape(7), np.array([0, 0, 0]))
+			aug_start = np.append(start.reshape(7), np.array([0]))
 		self.environment.robot.SetDOFValues(aug_start)
 
 		# --- Linear interpolation seed --- #
