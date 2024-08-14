@@ -37,7 +37,7 @@ def initialize(model_filename='gen3', envXML=None, viewer=True):
 
 	# Assumes the robot files are located in the data folder of the
 	# kinova_description package in the catkin workspace.
-	urdf_uri = os.path.join(get_package_share_directory('kortex_description'), 'robots', 'gen3.urdf')
+	urdf_uri = os.path.join(get_package_share_directory('kortex_description'), 'robots', 'gen3_2f_85.urdf')
 	srdf_uri = os.path.join(get_package_share_directory('kinova_gen3_7dof_robotiq_2f_85_moveit_config'), 'config', 'gen3.srdf')
 	# print(openravepy.databases)
 	# print(dir(openravepy))
@@ -258,10 +258,12 @@ def plotTable(env):
 	"""
 	# Load table into environment
 	# objects_path = os.path.join(get_package_share_directory('iact_control'),'/data')
-	objects_path = os.path.join(get_package_share_directory('ferl'), 'data', 'objects')
+	objects_path = os.path.join(get_package_share_directory('ferl'), 'data')
+	print("objects_path: ", objects_path)
 	# table_path = os.path.join(get_package_share_directory('ferl'), 'data', 'objects', 'table.xml')
 	# print("objects_path: ", objects_path)
 	env.Load('{:s}/table.xml'.format(objects_path))
+	print("Loaded table")
 	# env.Load('{:s}'.format(table_path))
 	table = env.GetKinBody('table')
 	table.SetTransform(np.array([[0.0, 1.0,  0.0, -0.8128/2], #should be negative 1?
