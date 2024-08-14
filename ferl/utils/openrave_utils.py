@@ -11,9 +11,12 @@ import math
 import os
 
 # Silence the planning logger to prevent spam.
-logging.getLogger('prpy.planning.base').addHandler(logging.NullHandler())
+logger = logging.getLogger('openrave_utils')
+logging.basicConfig(filename='logs.log', level=logging.INFO)
 
-robot_starting_dofs = np.array([-1, 2, 0, 2, 0, 4, 0, 1.11022302e-16,  -1.11022302e-16, 3.33066907e-16])
+
+# robot_starting_dofs = np.array([-1, 2, 0, 2, 0, 4, 0, 1.11022302e-16,  -1.11022302e-16, 3.33066907e-16])
+robot_starting_dofs = np.array([0, 0, 0, 0, 0, 0, 0, 0])
 
 def initialize(model_filename='gen3', envXML=None, viewer=True):
 	'''
@@ -30,35 +33,42 @@ def initialize(model_filename='gen3', envXML=None, viewer=True):
 		env.LoadURI(envXML)
   
 	# openravepy.RaveInitialize(load_all_plugins=True)
-	print(env)
+	# print(env)
 
 	# Assumes the robot files are located in the data folder of the
 	# kinova_description package in the catkin workspace.
-	urdf_uri = os.path.join(get_package_share_directory('kortex_description'), 'robots', 'gen3_2f85.urdf')
+	urdf_uri = os.path.join(get_package_share_directory('kortex_description'), 'robots', 'gen3.urdf')
 	srdf_uri = os.path.join(get_package_share_directory('kinova_gen3_7dof_robotiq_2f_85_moveit_config'), 'config', 'gen3.srdf')
 	# print(openravepy.databases)
 	# print(dir(openravepy))
-	print(get_package_prefix('or_urdf'))
+	# print(get_package_prefix('or_urdf'))
 
-	print(os.path.join(get_package_prefix('or_urdf'), 'lib', 'openrave-', 'or_urdf_plugin.so'))
+	# print(os.path.join(get_package_prefix('or_urdf'), 'lib', 'openrave-', 'or_urdf_plugin.so'))
 	found = RaveLoadPlugin(os.path.join(get_package_prefix('or_urdf'), 'lib', 'openrave-', 'or_urdf_plugin.so'))
 	print("Found plugin: " + str(found))
 	# print(env.GetModules())
 	# print(dir(env))
 	or_urdf = RaveCreateModule(env,'urdf_')
+	# print(dir(or_urdf))
 	
-	print(or_urdf)
-	print("urdf_uri: ", urdf_uri)
-	print("srdf_uri: ", srdf_uri)
+	# print("or_urdf: ", or_urdf)
+	# print("urdf_uri: {}".format(str(urdf_uri)))
+	# print("srdf_uri: {}".format(str(srdf_uri)))
 	# input()
 	created = or_urdf.SendCommand('LoadURI {:s} {:s}'.format(urdf_uri, srdf_uri))
 	print("Created robot:", created)
 	if not created:
 		raise Exception('Failed to load URDF and SRDF files.')
+	# print(env.GetRobots())
 	robot = env.GetRobots()[0]
+	print(len(robot.GetJoints()))
+	print(np.arange(0, len(robot.GetJoints())))
+	active_dofs = np.arange(0, len(robot.GetJoints()))
+	# print(dir(robot))
 	# bind_subclass(robot, ArchieRobot)
 
-	robot.SetActiveDOFs(np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))
+	# robot.SetActiveDOFs(np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))
+	robot.SetActiveDOFs(active_dofs)
 	robot.SetDOFValues(robot_starting_dofs)
 
 	if viewer:
