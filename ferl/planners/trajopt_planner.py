@@ -181,9 +181,12 @@ class TrajoptPlanner(object):
 		"""
 		
 		# --- Initialization --- #
-		if len(start) < 10:
+		if len(start) < 8:
 			aug_start = np.append(start.reshape(7), np.array([0]))
 		self.environment.robot.SetDOFValues(aug_start)
+
+		print("Start: ", aug_start)
+		print("Current: ", self.environment.robot.GetDOFValues())
 
 		# --- Linear interpolation seed --- #
 		if traj_seed is None:
@@ -206,7 +209,7 @@ class TrajoptPlanner(object):
 					"type": "pose",
 					"params": {"xyz" : xyz_target,
 								"wxyz" : quat_target,
-								"link": "j2s7s300_link_7",
+								"link": "j2s7s300_link_7", # TODO: Change this to the correct link name.
 								"rot_coeffs" : [0, 0, 0],
 								"pos_coeffs" : [35, 35, 35],
 								}
