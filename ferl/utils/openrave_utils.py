@@ -180,7 +180,7 @@ def plotCupTraj(env,robot,bodies,waypts,color=[0,1,0], increment=1):
 
 		# load mug into environment
 		# objects_path = os.path.join(get_package_share_directory('iact_control'),'/data')
-		objects_path = os.path.join(get_package_share_directory('ferl'), '/data/objects')
+		objects_path = os.path.join(get_package_share_directory('ferl'), 'data')
 		env.Load('{:s}/mug.xml'.format(objects_path))
 		mug = env.GetKinBody('mug')
 		mug.GetLinks()[0].GetGeometries()[0].SetDiffuseColor(np.array(color))
@@ -207,7 +207,7 @@ def plotMug(env, bodies, transform, color=[1,0,0]):
 	Plots mug at specific transform.
 	"""
 	# objects_path = os.path.join(get_package_share_directory('iact_control'),'/data')
-	objects_path = os.path.join(get_package_share_directory('ferl'), '/data/objects')
+	objects_path = os.path.join(get_package_share_directory('ferl'), 'data')
 	env.Load('{:s}/mug.xml'.format(objects_path))
 	mug = env.GetKinBody('mug')
 	mug.GetLinks()[0].GetGeometries()[0].SetDiffuseColor(np.array(color))
@@ -279,7 +279,7 @@ def plotCabinet(env):
 	"""
 	# Load table into environment
 	# objects_path = os.path.join(get_package_share_directory('iact_control'),'/data')
-	objects_path = os.path.join(get_package_share_directory('ferl'), '/data/objects')
+	objects_path = os.path.join(get_package_share_directory('ferl'), 'data')
 	env.Load('{:s}/cabinet.xml'.format(objects_path))
 	cabinet = env.GetKinBody('cabinet')
 	cabinet.SetTransform(np.array([[0.0, -1.0,  0.0, 0.6],
@@ -292,7 +292,7 @@ def plotCabinet(env):
 def plotMug(env):
 	# Load table into environment
     # objects_path = os.path.join(get_package_share_directory('iact_control'),'/data')
-    objects_path = os.path.join(get_package_share_directory('ferl'), '/data/objects')
+    objects_path = os.path.join(get_package_share_directory('ferl'), 'data')
     env.Load('{:s}/mug.xml'.format(objects_path))
 
 def plotMan(env):
@@ -301,7 +301,7 @@ def plotMan(env):
     """
     # Load table into environment
     # objects_path = os.path.join(get_package_share_directory('iact_control'),'/data')
-    objects_path = os.path.join(get_package_share_directory('ferl'), '/data/objects')
+    objects_path = os.path.join(get_package_share_directory('ferl'), 'data')
     env.Load('{:s}/manifest.xml'.format(objects_path))
 
 def plotTableMount(env,bodies):
