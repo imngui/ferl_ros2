@@ -316,7 +316,7 @@ def plotTableMount(env,bodies):
 			                     [0.0, 0.0,  1.0, -0.1016/2],
 			                     [0.0, 0.0,  0.0, 1.0]]))
 	body.SetName("robot_mount")
-	env.Add(body, True)
+	env.Add(body)
 
 	color = np.array([0.9, 0.58, 0])
 	body.GetLinks()[0].GetGeometries()[0].SetDiffuseColor(color)
@@ -337,7 +337,7 @@ def plotLaptop(env,bodies,pos):
 			                     [0.0, 0.0,  1.0, pos[2]-0.1016],
 			                     [0.0, 0.0,  0.0, 1.0]]))
 	body.SetName("laptop")
-	env.Add(body, True)
+	env.Add(body)
 	color = np.array([0, 0, 0])
 	body.GetLinks()[0].GetGeometries()[0].SetDiffuseColor(color)
 	bodies.append(body)
