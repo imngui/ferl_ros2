@@ -224,7 +224,7 @@ class TrajoptPlanner(object):
 		request = {
 			"basic_info": {
 				"n_steps": self.num_waypts,
-				"manip" : "j2s7s300",
+				"manip" : "manipulator",
 				"start_fixed" : True,
 				"max_iter" : self.MAX_ITER
 			},
