@@ -258,8 +258,11 @@ def plotTable(env):
 	"""
 	# Load table into environment
 	# objects_path = os.path.join(get_package_share_directory('iact_control'),'/data')
-	objects_path = os.path.join(get_package_share_directory('ferl'), '/data/objects')
+	objects_path = os.path.join(get_package_share_directory('ferl'), 'data', 'objects')
+	# table_path = os.path.join(get_package_share_directory('ferl'), 'data', 'objects', 'table.xml')
+	# print("objects_path: ", objects_path)
 	env.Load('{:s}/table.xml'.format(objects_path))
+	# env.Load('{:s}'.format(table_path))
 	table = env.GetKinBody('table')
 	table.SetTransform(np.array([[0.0, 1.0,  0.0, -0.8128/2], #should be negative 1?
   								 [1.0, 0.0,  0.0, 0],
