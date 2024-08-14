@@ -94,7 +94,7 @@ class FeatureElicitator(Node):
         self.declare_parameter('setup.feat_weights', descriptor=ParameterDescriptor(dynamic_typing=True))
         self.declare_parameter('setup.start', descriptor=ParameterDescriptor(dynamic_typing=True))
         self.declare_parameter('setup.goal', descriptor=ParameterDescriptor(dynamic_typing=True))
-        self.declare_parameter('setup.goal_pose', descriptor=ParameterDescriptor(dynamic_typing=True))
+        self.declare_parameter('setup.goal_pose', None, descriptor=ParameterDescriptor(dynamic_typing=True))
         self.declare_parameter('setup.T', descriptor=ParameterDescriptor(dynamic_typing=True))
         self.declare_parameter('setup.timestep', descriptor=ParameterDescriptor(dynamic_typing=True))
         self.declare_parameter('setup.save_dir', descriptor=ParameterDescriptor(dynamic_typing=True))
@@ -128,7 +128,7 @@ class FeatureElicitator(Node):
         self.start = np.array(pick)*(math.pi/180.0)
         place = self.get_parameter('setup.goal').value
         self.goal = np.array(place)*(math.pi/180.0)
-        self.goal_pose = self.get_parameter_or('setup.goal_pose', None)
+        self.goal_pose = self.get_parameter('setup.goal_pose').value
         self.T = self.get_parameter('setup.T').value
         self.timestep = self.get_parameter('setup.timestep').value
         self.save_dir = self.get_parameter('setup.save_dir').value
@@ -167,6 +167,10 @@ class FeatureElicitator(Node):
         else:
             raise Exception('Planner {} not implemented.'.format(planner_type))
         
+        print("Planning trajectory...")
+        print("Start: ", self.start)
+        print("Goal: ", self.goal)
+        print("Goal Pose: ", self.goal_pose)
         self.traj = self.planner.replan(self.start, self.goal, self.goal_pose, self.T, self.timestep)
         self.traj_plan = self.traj.downsample(self.planner.num_waypts)
 

@@ -240,6 +240,7 @@ class TrajoptPlanner(object):
 				"data": init_waypts.tolist()
 			}
 		}
+		print("Request: ", request)
 
 		s = json.dumps(request)
 		prob = trajoptpy.ConstructProblem(s, self.environment.env)
