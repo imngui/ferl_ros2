@@ -179,12 +179,12 @@ def plotCupTraj(env,robot,bodies,waypts,color=[0,1,0], increment=1):
 	for i in range(0,len(waypts),increment):
 		waypoint = waypts[i]
 		print("waypt: " +str(waypoint))
-		dof = np.append(waypoint, np.array([1, 1, 1]))
+		dof = np.append(waypoint, np.array([1]))
 		dof[2] += math.pi
 		robot.SetDOFValues(dof)
 
 		links = robot.GetLinks()
-		manipTf = links[9].GetTransform() 
+		manipTf = links[7].GetTransform() 
 
 		# load mug into environment
 		# objects_path = os.path.join(get_package_share_directory('iact_control'),'/data')
@@ -248,7 +248,7 @@ def plotTraj(env,robot,bodies,waypts, size=10, color=[0, 1, 0]):
 	"""
 	for i in range(len(waypts)):
 		waypoint = waypts[i]
-		dof = np.append(waypoint, np.array([1, 1, 1]))
+		dof = np.append(waypoint, np.array([1]))
 		dof[2] += math.pi
 		robot.SetDOFValues(dof)
 		coord = robotToCartesian(robot)

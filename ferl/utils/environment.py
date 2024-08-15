@@ -128,7 +128,7 @@ class Environment(object):
             return torch.reshape(torch.cat((waypt.squeeze(), orientations.flatten(), coords.flatten(), object_coords.flatten())), (-1,))
         else:
             if len(waypt) < 10:
-                waypt_openrave = np.append(waypt.reshape(7), np.array([0, 0, 0]))
+                waypt_openrave = np.append(waypt.reshape(7), np.array([0]))
                 waypt_openrave[2] += math.pi
 
             self.robot.SetDOFValues(waypt_openrave)
@@ -281,8 +281,8 @@ class Environment(object):
         Returns:
             dist -- scalar feature
         """
-        if len(waypt) < 10:
-            waypt = np.append(waypt.reshape(7), np.array([0,0,0]))
+        if len(waypt) < 8:
+            waypt = np.append(waypt.reshape(7), np.array([0]))
             waypt[2] += math.pi
         self.robot.SetDOFValues(waypt)
         coords = robotToCartesian(self.robot)
@@ -302,8 +302,8 @@ class Environment(object):
         Returns:
             dist -- scalar feature
         """
-        if len(waypt) < 10:
-            waypt = np.append(waypt.reshape(7), np.array([0,0,0]))
+        if len(waypt) < 8:
+            waypt = np.append(waypt.reshape(7), np.array([0]))
             waypt[2] += math.pi
         self.robot.SetDOFValues(waypt)
         coords = robotToCartesian(self.robot)
@@ -322,8 +322,8 @@ class Environment(object):
         Returns:
             dist -- scalar feature
         """
-        if len(waypt) < 10:
-            waypt = np.append(waypt.reshape(7), np.array([0,0,0]))
+        if len(waypt) < 8:
+            waypt = np.append(waypt.reshape(7), np.array([0]))
             waypt[2] += math.pi
 
         self.robot.SetDOFValues(waypt)
@@ -343,8 +343,8 @@ class Environment(object):
                 0: EE is at more than 0.3 meters away from laptop
                 +: EE is closer than 0.3 meters to laptop
         """
-        if len(waypt) < 10:
-            waypt = np.append(waypt.reshape(7), np.array([0,0,0]))
+        if len(waypt) < 8:
+            waypt = np.append(waypt.reshape(7), np.array([0]))
             waypt[2] += math.pi
         self.robot.SetDOFValues(waypt)
         coords = robotToCartesian(self.robot)
@@ -367,8 +367,8 @@ class Environment(object):
                 0: EE is at more than 0.4 meters away from human
                 +: EE is closer than 0.4 meters to human
         """
-        if len(waypt) < 10:
-            waypt = np.append(waypt.reshape(7), np.array([0,0,0]))
+        if len(waypt) < 8:
+            waypt = np.append(waypt.reshape(7), np.array([0]))
             waypt[2] += math.pi
         self.robot.SetDOFValues(waypt)
         coords = robotToCartesian(self.robot)
@@ -391,8 +391,8 @@ class Environment(object):
                 0: EE is at more than 0.3 meters away from human
                 +: EE is closer than 0.3 meters to human
         """
-        if len(waypt) < 10:
-            waypt = np.append(waypt.reshape(7), np.array([0,0,0]))
+        if len(waypt) < 8:
+            waypt = np.append(waypt.reshape(7), np.array([0]))
             waypt[2] += math.pi
         self.robot.SetDOFValues(waypt)
         coords = robotToCartesian(self.robot)
@@ -418,8 +418,8 @@ class Environment(object):
                 0: EE is at more than 0.2 meters away from the objects and between
                 +: EE is closer than 0.2 meters to the objects and between
         """
-        if len(waypt) < 10:
-            waypt = np.append(waypt.reshape(7), np.array([0,0,0]))
+        if len(waypt) < 8:
+            waypt = np.append(waypt.reshape(7), np.array([0]))
             waypt[2] += math.pi
         self.robot.SetDOFValues(waypt)
         coords = robotToCartesian(self.robot)
@@ -455,10 +455,10 @@ class Environment(object):
         Constrains z-axis of robot's end-effector to always be above the table.
         """
         if len(waypt) < 10:
-            waypt = np.append(waypt.reshape(7), np.array([0,0,0]))
+            waypt = np.append(waypt.reshape(7), np.array([0]))
             waypt[2] += math.pi
         self.robot.SetDOFValues(waypt)
-        EE_link = self.robot.GetLinks()[10]
+        EE_link = self.robot.GetLinks()[8]
         EE_coord_z = EE_link.GetTransform()[2][3]
         if EE_coord_z > -0.1016:
             return 0
@@ -469,7 +469,7 @@ class Environment(object):
         Constrains orientation of robot's end-effector to be holding coffee mug upright.
         """
         if len(waypt) < 10:
-            waypt = np.append(waypt.reshape(7), np.array([0,0,0]))
+            waypt = np.append(waypt.reshape(7), np.array([0]))
             waypt[2] += math.pi
         self.robot.SetDOFValues(waypt)
         EE_link = self.robot.GetLinks()[7]
@@ -480,7 +480,7 @@ class Environment(object):
         Analytic derivative for coffee constraint.
         """
         if len(waypt) < 10:
-            waypt = np.append(waypt.reshape(7), np.array([0,0,0]))
+            waypt = np.append(waypt.reshape(7), np.array([0]))
             waypt[2] += math.pi
         self.robot.SetDOFValues(waypt)
         world_dir = self.robot.GetLinks()[7].GetTransform()[:3,:3].dot([1,0,0])

@@ -57,7 +57,7 @@ def table_features(environment, waypt):
         dist -- scalar feature
     """
     if len(waypt) < 10:
-        waypt = np.append(waypt.reshape(7), np.array([0,0,0]))
+        waypt = np.append(waypt.reshape(7), np.array([0]))
         waypt[2] += math.pi
 
     environment.robot.SetDOFValues(waypt)

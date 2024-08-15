@@ -229,7 +229,7 @@ class FeatureElicitator(Node):
         constants["alpha"] = self.get_parameter('learner.alpha').value
         constants["n"] = self.get_parameter('learner.n').value
         self.feat_method = self.get_parameter('learner.type').value
-        self.learner = PHRILearner(self.feat_metthod, self.environment, constants)
+        self.learner = PHRILearner(self.feat_method, self.environment, constants)
         # TODO: Implement PHRILearner class.
 
     def register_callbacks(self):
