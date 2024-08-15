@@ -167,7 +167,7 @@ class FeatureElicitator(Node):
         else:
             raise Exception('Planner {} not implemented.'.format(planner_type))
         
-        time.sleep(100)
+        time.sleep(30)
         
         print("Planning trajectory...")
         print("Start: ", self.start)

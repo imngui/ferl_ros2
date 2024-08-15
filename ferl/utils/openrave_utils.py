@@ -59,13 +59,21 @@ def initialize(model_filename='gen3', envXML=None, viewer=True):
 	print("Created robot:", created)
 	if not created:
 		raise Exception('Failed to load URDF and SRDF files.')
-	# print(env.GetRobots())
+	print("ROBOTS", env.GetRobots())
 	robot = env.GetRobots()[0]
 	print(len(robot.GetJoints()))
 	print(np.arange(0, len(robot.GetJoints())))
 	active_dofs = np.arange(0, len(robot.GetJoints()))
 	# print(dir(robot))
 	# bind_subclass(robot, ArchieRobot)
+	# robot.SetTransform(np.array([[0, 0, 0, 0],
+	# 							 [0, 0, 0, 0],
+	# 							 [0, 0, 0, 0],
+	# 							 [0, 0, 0, 1]]))
+	print("Location: ", robot.GetTransform())
+	# robot.GetLinks()[0].GetGeometries()[0].SetDiffuseColor(np.array([0, 0, 1]))
+	# robot.GetLinks()[5].GetGeometries()[0].SetVisible(True)
+	# print(robot.GetLinks()[5].GetGeometries()[0].GetInfo())
 
 	# robot.SetActiveDOFs(np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))
 	robot.SetActiveDOFs(active_dofs)
