@@ -1,11 +1,14 @@
 import openravepy
 from openravepy import *
 from openravepy import RaveCreateModule, RaveLoadPlugin
+
+# from ferl.utils.bind import bind_subclass
 # from prpy.bind import bind_subclass
 # from archierobot import ArchieRobot
 # from catkin.find_in_workspaces import find_in_workspaces
 from ament_index_python.packages import get_package_share_directory, get_package_prefix
 import numpy as np
+from numpy import *
 import logging
 import math
 import os
@@ -31,53 +34,45 @@ def initialize(model_filename='gen3', envXML=None, viewer=True):
 	env = openravepy.Environment()
 	if envXML is not None:
 		env.LoadURI(envXML)
-  
-	# openravepy.RaveInitialize(load_all_plugins=True)
-	# print(env)
 
 	# Assumes the robot files are located in the data folder of the
 	# kinova_description package in the catkin workspace.
-	urdf_uri = os.path.join(get_package_share_directory('kortex_description'), 'robots', 'gen3_2f_85.urdf')
+	urdf_uri = os.path.join(get_package_share_directory('kortex_description'), 'robots', 'gen3.urdf')
 	srdf_uri = os.path.join(get_package_share_directory('kinova_gen3_7dof_robotiq_2f_85_moveit_config'), 'config', 'gen3.srdf')
-	# print(openravepy.databases)
-	# print(dir(openravepy))
-	# print(get_package_prefix('or_urdf'))
 
-	# print(os.path.join(get_package_prefix('or_urdf'), 'lib', 'openrave-', 'or_urdf_plugin.so'))
 	found = RaveLoadPlugin(os.path.join(get_package_prefix('or_urdf'), 'lib', 'openrave-', 'or_urdf_plugin.so'))
 	print("Found plugin: " + str(found))
-	# print(env.GetModules())
-	# print(dir(env))
+
 	or_urdf = RaveCreateModule(env,'urdf_')
-	# print(dir(or_urdf))
-	
-	# print("or_urdf: ", or_urdf)
-	# print("urdf_uri: {}".format(str(urdf_uri)))
-	# print("srdf_uri: {}".format(str(srdf_uri)))
-	# input()
+
 	created = or_urdf.SendCommand('LoadURI {:s} {:s}'.format(urdf_uri, srdf_uri))
 	print("Created robot:", created)
 	if not created:
 		raise Exception('Failed to load URDF and SRDF files.')
-	print("ROBOTS", env.GetRobots())
-	robot = env.GetRobots()[0]
-	print(len(robot.GetJoints()))
-	print(np.arange(0, len(robot.GetJoints())))
-	active_dofs = np.arange(0, len(robot.GetJoints()))
-	# print(dir(robot))
-	# bind_subclass(robot, ArchieRobot)
-	# robot.SetTransform(np.array([[0, 0, 0, 0],
-	# 							 [0, 0, 0, 0],
-	# 							 [0, 0, 0, 0],
-	# 							 [0, 0, 0, 1]]))
-	print("Location: ", robot.GetTransform())
-	# robot.GetLinks()[0].GetGeometries()[0].SetDiffuseColor(np.array([0, 0, 1]))
-	# robot.GetLinks()[5].GetGeometries()[0].SetVisible(True)
-	# print(robot.GetLinks()[5].GetGeometries()[0].GetInfo())
 
-	# robot.SetActiveDOFs(np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))
+	robot = env.GetRobots()[0]
+	robot.SetActiveManipulator('manipulator')
+	manip = robot.GetManipulator('manipulator')
+	active_dofs = np.arange(0, len(robot.GetJoints()))
+	
+	# Generate the ik solver
+	# ikmodel = databases.inversekinematics.InverseKinematicsModel(robot, iktype=IkParameterization.Type.Transform6D)
+	# if not ikmodel.load():
+	# 	ikmodel.autogenerate()
+  
+	print("Generated IK")
+	# Generate a controller
+	multicontroller = openravepy.RaveCreateMultiController(env, '')
+	robot.SetController(multicontroller)
+	controller = openravepy.RaveCreateController(env, 'IdealController')
+	if controller is None:
+		raise Exception('Controller creation failed.')
+    
+	multicontroller.AttachController(controller, manip.GetArmIndices(), 0)
+ 
 	robot.SetActiveDOFs(active_dofs)
 	robot.SetDOFValues(robot_starting_dofs)
+ 
 
 	if viewer:
 		env.SetViewer('qtosg')

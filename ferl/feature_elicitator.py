@@ -398,7 +398,7 @@ class FeatureElicitator(Node):
 
         # Start admittance control mode.
         # TODO: Implement ros2_utils
-        ros2_utils.start_admittance_mode(self.prefix, self)
+        # ros2_utils.start_admittance_mode(self.prefix, self)
 
         # Publish to ROS at 100hz.
         rate = self.create_rate(100)
@@ -413,12 +413,12 @@ class FeatureElicitator(Node):
                     break
 
             # TODO: Implement ros2_utils
-            self.vel_pub.publish(ros2_utils.cmd_to_JointVelocityMsg(self.cmd))
+            # self.vel_pub.publish(ros2_utils.cmd_to_JointVelocityMsg(self.cmd))
             rate.sleep()
 
         print("----------------------------------")
         # TODO: Implement ros2_utils
-        ros2_utils.stop_admittance_mode(self.prefix, node)
+        # ros2_utils.stop_admittance_mode(self.prefix, node)
 
 def main(args=None):
     rclpy.init(args=args)
