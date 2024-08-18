@@ -1,4 +1,6 @@
-from baseline_utils import *
+from ferl.MaxEnt_Baseline.baseline_utils import *
+
+py_clip = lambda x, l, u: l if x < l else u if x > u else x
 
 class GT_Reward_Expert:
 	"""

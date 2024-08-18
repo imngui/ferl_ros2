@@ -46,7 +46,7 @@ def initialize(model_filename='gen3', envXML=None, viewer=True):
 	or_urdf = RaveCreateModule(env,'urdf_')
 
 	created = or_urdf.SendCommand('LoadURI {:s} {:s}'.format(urdf_uri, srdf_uri))
-	print("Created robot:", created)
+	# print("Created robot:", created)
 	if not created:
 		raise Exception('Failed to load URDF and SRDF files.')
 
@@ -60,7 +60,7 @@ def initialize(model_filename='gen3', envXML=None, viewer=True):
 	# if not ikmodel.load():
 	# 	ikmodel.autogenerate()
   
-	print("Generated IK")
+	# print("Generated IK")
 	# Generate a controller
 	multicontroller = openravepy.RaveCreateMultiController(env, '')
 	robot.SetController(multicontroller)
@@ -262,11 +262,9 @@ def plotTable(env):
 	# Load table into environment
 	# objects_path = os.path.join(get_package_share_directory('iact_control'),'/data')
 	objects_path = os.path.join(get_package_share_directory('ferl'), 'data')
-	print("objects_path: ", objects_path)
 	# table_path = os.path.join(get_package_share_directory('ferl'), 'data', 'objects', 'table.xml')
 	# print("objects_path: ", objects_path)
 	env.Load('{:s}/table.xml'.format(objects_path))
-	print("Loaded table")
 	# env.Load('{:s}'.format(table_path))
 	table = env.GetKinBody('table')
 	table.SetTransform(np.array([[0.0, 1.0,  0.0, -0.8128/2], #should be negative 1?

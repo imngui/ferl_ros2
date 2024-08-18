@@ -1,4 +1,4 @@
-from baseline_utils import *
+from ferl.MaxEnt_Baseline.baseline_utils import *
 from ferl.utils.transform_input import transform_input, get_subranges
 import random
 import torch.optim as optim

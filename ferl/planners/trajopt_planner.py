@@ -179,14 +179,15 @@ class TrajoptPlanner(object):
 			waypts_plan -- A downsampled trajectory resulted from the TrajOpt
 			optimization problem solution.
 		"""
-		
+		# print("Prev Current: ", self.environment.robot.GetDOFValues())
+
 		# --- Initialization --- #
 		if len(start) < 8:
 			aug_start = np.append(start.reshape(7), np.array([0]))
 		self.environment.robot.SetDOFValues(aug_start)
 
-		print("Start: ", aug_start)
-		print("Current: ", self.environment.robot.GetDOFValues())
+		# print("Start: ", aug_start)
+		# print("Current: ", self.environment.robot.GetDOFValues())
 
 		# --- Linear interpolation seed --- #
 		if traj_seed is None:
