@@ -19,9 +19,9 @@ logging.basicConfig(filename='logs.log', level=logging.INFO)
 
 
 # robot_starting_dofs = np.array([-1, 2, 0, 2, 0, 4, 0, 1.11022302e-16,  -1.11022302e-16, 3.33066907e-16])
-robot_starting_dofs = np.array([0, 0, 0, 0, 0, 0, 0, 0])
+robot_starting_dofs = np.array([0, 0, -1.5708, 0, 0, 0, 0])
 
-def initialize(model_filename='gen3', envXML=None, viewer=True):
+def initialize(model_filename='ur5e', envXML=None, viewer=True):
 	'''
 	Load and configure the GEN3 robot. If envXML is not None, loads environment.
 	Returns robot and environment.
@@ -37,8 +37,8 @@ def initialize(model_filename='gen3', envXML=None, viewer=True):
 
 	# Assumes the robot files are located in the data folder of the
 	# kinova_description package in the catkin workspace.
-	urdf_uri = os.path.join(get_package_share_directory('kortex_description'), 'robots', 'gen3.urdf')
-	srdf_uri = os.path.join(get_package_share_directory('kinova_gen3_7dof_robotiq_2f_85_moveit_config'), 'config', 'gen3.srdf')
+	urdf_uri = os.path.join(get_package_share_directory('ur5e_2f_85_description'), 'urdf', 'ur5e_2f_85.urdf')
+	srdf_uri = os.path.join(get_package_share_directory('ur5e_2f_85_moveit_config'), 'config', 'ur5e_2f_85.srdf')
 
 	found = RaveLoadPlugin(os.path.join(get_package_prefix('or_urdf'), 'lib', 'openrave-', 'or_urdf_plugin.so'))
 	print("Found plugin: " + str(found))
@@ -51,8 +51,8 @@ def initialize(model_filename='gen3', envXML=None, viewer=True):
 		raise Exception('Failed to load URDF and SRDF files.')
 
 	robot = env.GetRobots()[0]
-	robot.SetActiveManipulator('manipulator')
-	manip = robot.GetManipulator('manipulator')
+	robot.SetActiveManipulator('arm')
+	manip = robot.GetManipulator('arm')
 	active_dofs = np.arange(0, len(robot.GetJoints()))
 	
 	# Generate the ik solver
