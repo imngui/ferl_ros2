@@ -88,17 +88,19 @@ class PID(object):
           i_min      The integral lower limit. 
           i_max      The integral upper limit.
         """
+        # TODO Generalize this to num_dofs
+        self.num_dofs = 6
         self.set_gains(p_gain, i_gain, d_gain, i_min, i_max)
         self.reset()
 
     def reset(self):
         """ Reset the state of this PID controller """
-        self._p_error_last = np.zeros((7,1)) # Save position state for derivative
+        self._p_error_last = np.zeros((self.num_dofs,1)) # Save position state for derivative
                                  # state calculation.
-        self._p_error = np.zeros((7,1))  # Position error.
-        self._d_error = np.zeros((7,1))  # Derivative error.
-        self._i_error = np.zeros((7,1))  # Integator error.
-        self._cmd = np.zeros((7,7))  # Command to send.
+        self._p_error = np.zeros((self.num_dofs,1))  # Position error.
+        self._d_error = np.zeros((self.num_dofs,1))  # Derivative error.
+        self._i_error = np.zeros((self.num_dofs,1))  # Integator error.
+        self._cmd = np.zeros((self.num_dofs,self.num_dofs))  # Command to send.
         self._last_time = None # Used for automatic calculation of dt.
         
     def set_gains(self, p_gain, i_gain, d_gain, i_min, i_max): 
@@ -203,7 +205,7 @@ class PID(object):
 
         self._p_error = p_error
         if dt == 0 or math.isnan(dt) or math.isinf(dt):
-            return np.zeros((7,7))
+            return np.zeros((self.num_dofs,self.num_dofs))
 
         # Calculate proportional contribution to command
         p_term = self._p_gain * self._p_error

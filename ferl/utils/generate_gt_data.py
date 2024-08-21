@@ -6,6 +6,8 @@ from planners.trajopt_planner import TrajoptPlanner
 import torch
 import os, sys
 
+# TODO ! Figure out EE_Link stuff
+
 def sample_data(environment, feature, n_samples=10000):
     """
     Generates feature data with the ground truth feature function.
@@ -17,14 +19,15 @@ def sample_data(environment, feature, n_samples=10000):
         train_points -- configuration space waypoint samples
         regression_labels -- feature labels for train_points
     """
-    n_per_dim = math.ceil(n_samples ** (1 / 7))
+    num_dofs = environment.env.GetRobots()[0].GetActiveDOF()
+    n_per_dim = math.ceil(n_samples ** (1 / num_dofs))
     #  we are in 7D radian space
     dim_vector = np.linspace(0, 2 * np.pi, n_per_dim)
     train_points = []
     regression_labels = []
 
     for i in range(n_samples):
-        sample = np.random.uniform(0, 2 * np.pi, 7)
+        sample = np.random.uniform(0, 2 * np.pi, num_dofs)
         if feature == "table":
             rl = table_features(environment, sample)
         elif feature == "coffee":
@@ -56,8 +59,9 @@ def table_features(environment, waypt):
     Returns:
         dist -- scalar feature
     """
+    num_dofs = environment.env.GetRobots()[0].GetActiveDOF()
     if len(waypt) < 10:
-        waypt = np.append(waypt.reshape(7), np.array([0]))
+        waypt = np.append(waypt.reshape(num_dofs), np.array([0]))
         waypt[2] += math.pi
 
     environment.robot.SetDOFValues(waypt)
@@ -78,12 +82,14 @@ def coffee_features(environment, waypt):
     Returns:
         dist -- scalar feature
     """
+    num_dofs = environment.env.GetRobots()[0].GetActiveDOF()
     if len(waypt) < 10:
-        waypt = np.append(waypt.reshape(7), np.array([0,0,0]))
+        waypt = np.append(waypt.reshape(num_dofs), np.array([0,0,0]))
         waypt[2] += math.pi
 
     environment.robot.SetDOFValues(waypt)
-    EE_link = environment.robot.GetLinks()[7]
+    # EE_link = environment.robot.GetLinks()[7]
+    EE_link = environment.robot.GetLink('tool0')
     Rx = EE_link.GetTransform()[:3,0]
     return 1 - EE_link.GetTransform()[:3,0].dot([0,0,1])
 
@@ -100,12 +106,14 @@ def laptop_features(environment, waypt):
             0: EE is at more than 0.3 meters away from laptop
             +: EE is closer than 0.3 meters to laptop
     """
+    num_dofs = environment.env.GetRobots()[0].GetActiveDOF()
     if len(waypt) < 10:
-        waypt = np.append(waypt.reshape(7), np.array([0,0,0]))
+        waypt = np.append(waypt.reshape(num_dofs), np.array([0,0,0]))
         waypt[2] += math.pi
 
     environment.robot.SetDOFValues(waypt)
     coords = robotToCartesian(environment.robot)
+    # TODO Why 6?
     EE_coord_xy = coords[6][0:2]
     laptop_xy = np.array(environment.object_centers['LAPTOP_CENTER'][0:2])
     dist = np.linalg.norm(EE_coord_xy - laptop_xy) - 0.3
@@ -126,11 +134,13 @@ def human_features(environment, waypt):
             0: EE is at more than 0.4 meters away from human
             +: EE is closer than 0.4 meters to human
     """
+    num_dofs = environment.env.GetRobots()[0].GetActiveDOF()
     if len(waypt) < 10:
-        waypt = np.append(waypt.reshape(7), np.array([0,0,0]))
+        waypt = np.append(waypt.reshape(num_dofs), np.array([0,0,0]))
         waypt[2] += math.pi
     environment.robot.SetDOFValues(waypt)
     coords = robotToCartesian(environment.robot)
+    # TODO Why 6
     EE_coord_xy = coords[6][0:2]
     human_xy = np.array(environment.object_centers['HUMAN_CENTER'][0:2])
     dist = np.linalg.norm(EE_coord_xy - human_xy) - 0.3
@@ -151,11 +161,13 @@ def proxemics_features(environment, waypt):
             0: EE is at more than 0.3 meters away from human
             +: EE is closer than 0.3 meters to human
     """
+    num_dofs = environment.env.GetRobots()[0].GetActiveDOF()
     if len(waypt) < 10:
-        waypt = np.append(waypt.reshape(7), np.array([0,0,0]))
+        waypt = np.append(waypt.reshape(num_dofs), np.array([0,0,0]))
         waypt[2] += math.pi
     environment.robot.SetDOFValues(waypt)
     coords = robotToCartesian(environment.robot)
+    # TODO: Why 6?
     EE_coord_xy = coords[6][0:2]
     human_xy = np.array(environment.object_centers['HUMAN_CENTER'][0:2])
     # Modify ellipsis distance.
@@ -177,11 +189,13 @@ def betweenobjects_features(environment, waypt):
             0: EE is at more than 0.2 meters away from the objects and between
             +: EE is closer than 0.2 meters to the objects and between
     """
+    num_dofs = environment.env.GetRobots()[0].GetActiveDOF()
     if len(waypt) < 10:
-        waypt = np.append(waypt.reshape(7), np.array([0,0,0]))
+        waypt = np.append(waypt.reshape(num_dofs), np.array([0,0,0]))
         waypt[2] += math.pi
     environment.robot.SetDOFValues(waypt)
     coords = robotToCartesian(environment.robot)
+    # TODO Why 6?
     EE_coord_xy = coords[6][0:2]
     object1_xy = np.array(environment.object_centers['OBJECT1'][0:2])
     object2_xy = np.array(environment.object_centers['OBJECT2'][0:2])

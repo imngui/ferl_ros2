@@ -8,6 +8,8 @@ from openravepy import *
 from ferl.utils.openrave_utils import *
 from ferl.utils.learned_feature import LearnedFeature
 
+# TODO ! Figure out EE_Link stuff
+
 class Environment(object):
     """
     This class creates an OpenRave environment and contains all the
@@ -16,6 +18,7 @@ class Environment(object):
     def __init__(self, model_filename, object_centers, feat_list, feat_range, feat_weights, LF_dict=None, viewer=True):
         # ---- Create environment ---- #
         self.env, self.robot = initialize(model_filename, viewer=viewer)
+        self.num_dofs = self.robot.GetActiveDOF()
 
         # Insert any objects you want into environment.
         self.bodies = []
@@ -127,11 +130,13 @@ class Environment(object):
             object_coords = torch.from_numpy(object_coords)
             return torch.reshape(torch.cat((waypt.squeeze(), orientations.flatten(), coords.flatten(), object_coords.flatten())), (-1,))
         else:
-            if len(waypt) < 10:
-                waypt_openrave = np.append(waypt.reshape(7), np.array([0]))
-                waypt_openrave[2] += math.pi
+            # if len(waypt) < 10:
+            #     waypt_openrave = np.append(waypt.reshape(self.num_dofs), np.array([0]))
+            #     waypt_openrave[2] += math.pi
 
-            self.robot.SetDOFValues(waypt_openrave)
+            waypt_openrave = waypt
+            self.robot.SetActiveDOFValues(waypt_openrave)
+            # self.robot.SetDOFValues(waypt_openrave)
             coords = np.array(robotToCartesian(self.robot))
             orientations = np.array(robotToOrientation(self.robot))
             return np.reshape(np.concatenate((waypt.squeeze(), orientations.flatten(), coords.flatten(), object_coords.flatten())), (-1,))
@@ -253,7 +258,7 @@ class Environment(object):
             dist -- scalar feature
         """
 
-        return np.linalg.norm(waypt[:7] - waypt[7:])**2
+        return np.linalg.norm(waypt[:self.num_dofs] - waypt[self.num_dofs:])**2
 
     # -- Distance to Robot Base (origin of world) -- #
 
@@ -267,10 +272,11 @@ class Environment(object):
         Returns:
             dist -- scalar feature
         """
-        if len(waypt) < 8:
-            waypt = np.append(waypt.reshape(7), np.array([0]))
-            waypt[2] += math.pi
-        self.robot.SetDOFValues(waypt)
+        # if len(waypt) < 8:
+        #     waypt = np.append(waypt.reshape(self.num_dofs), np.array([0]))
+        #     waypt[2] += math.pi
+        # self.robot.SetDOFValues(waypt)
+        self.robot.SetActiveDOFValues(waypt)
         coords = robotToCartesian(self.robot)
         EEcoord_y = coords[6][1]
         EEcoord_y = np.linalg.norm(coords[6])
@@ -288,10 +294,11 @@ class Environment(object):
         Returns:
             dist -- scalar feature
         """
-        if len(waypt) < 8:
-            waypt = np.append(waypt.reshape(7), np.array([0]))
-            waypt[2] += math.pi
-        self.robot.SetDOFValues(waypt)
+        # if len(waypt) < 8:
+        #     waypt = np.append(waypt.reshape(self.num_dofs), np.array([0]))
+        #     waypt[2] += math.pi
+        # self.robot.SetDOFValues(waypt)
+        self.robot.SetActiveDOFValues(waypt)
         coords = robotToCartesian(self.robot)
         EEcoord_z = coords[6][2]
         return EEcoord_z
@@ -308,12 +315,15 @@ class Environment(object):
         Returns:
             dist -- scalar feature
         """
-        if len(waypt) < 8:
-            waypt = np.append(waypt.reshape(7), np.array([0]))
-            waypt[2] += math.pi
+        # if len(waypt) < 8:
+        #     waypt = np.append(waypt.reshape(self.num_dofs), np.array([0]))
+        #     waypt[2] += math.pi
 
-        self.robot.SetDOFValues(waypt)
-        EE_link = self.robot.GetLinks()[7]
+        # self.robot.SetDOFValues(waypt)
+        self.robot.SetActiveDOFValues(waypt)
+        # TODO How do we know/get the ee link?
+        # EE_link = self.robot.GetLinks()[7]
+        EE_link = self.robot.GetLink('tool0')
         Rx = EE_link.GetTransform()[:3,0]
         return 1 - EE_link.GetTransform()[:3,0].dot([0,0,1])
 
@@ -329,10 +339,11 @@ class Environment(object):
                 0: EE is at more than 0.3 meters away from laptop
                 +: EE is closer than 0.3 meters to laptop
         """
-        if len(waypt) < 8:
-            waypt = np.append(waypt.reshape(7), np.array([0]))
-            waypt[2] += math.pi
-        self.robot.SetDOFValues(waypt)
+        # if len(waypt) < 8:
+        #     waypt = np.append(waypt.reshape(self.num_dofs), np.array([0]))
+        #     waypt[2] += math.pi
+        # self.robot.SetDOFValues(waypt)
+        self.robot.SetActiveDOFValues(waypt)
         coords = robotToCartesian(self.robot)
         EE_coord_xy = coords[6][0:2]
         laptop_xy = np.array(self.object_centers['LAPTOP_CENTER'][0:2])
@@ -353,10 +364,11 @@ class Environment(object):
                 0: EE is at more than 0.4 meters away from human
                 +: EE is closer than 0.4 meters to human
         """
-        if len(waypt) < 8:
-            waypt = np.append(waypt.reshape(7), np.array([0]))
-            waypt[2] += math.pi
-        self.robot.SetDOFValues(waypt)
+        # if len(waypt) < 8:
+        #     waypt = np.append(waypt.reshape(self.num_dofs), np.array([0]))
+        #     waypt[2] += math.pi
+        # self.robot.SetDOFValues(waypt)
+        self.robot.SetActiveDOFValues(waypt)
         coords = robotToCartesian(self.robot)
         EE_coord_xy = coords[6][0:2]
         human_xy = np.array(self.object_centers['HUMAN_CENTER'][0:2])
@@ -377,10 +389,11 @@ class Environment(object):
                 0: EE is at more than 0.3 meters away from human
                 +: EE is closer than 0.3 meters to human
         """
-        if len(waypt) < 8:
-            waypt = np.append(waypt.reshape(7), np.array([0]))
-            waypt[2] += math.pi
-        self.robot.SetDOFValues(waypt)
+        # if len(waypt) < 8:
+        #     waypt = np.append(waypt.reshape(self.num_dofs), np.array([0]))
+        #     waypt[2] += math.pi
+        # self.robot.SetDOFValues(waypt)
+        self.robot.SetActiveDOFValues(waypt)
         coords = robotToCartesian(self.robot)
         EE_coord_xy = coords[6][0:2]
         human_xy = np.array(self.object_centers['HUMAN_CENTER'][0:2])
@@ -404,10 +417,11 @@ class Environment(object):
                 0: EE is at more than 0.2 meters away from the objects and between
                 +: EE is closer than 0.2 meters to the objects and between
         """
-        if len(waypt) < 8:
-            waypt = np.append(waypt.reshape(7), np.array([0]))
-            waypt[2] += math.pi
-        self.robot.SetDOFValues(waypt)
+        # if len(waypt) < 8:
+        #     waypt = np.append(waypt.reshape(self.num_dofs), np.array([0]))
+        #     waypt[2] += math.pi
+        # self.robot.SetDOFValues(waypt)
+        self.robot.SetActiveDOFValues(waypt)
         coords = robotToCartesian(self.robot)
         EE_coord_xy = coords[6][0:2]
         object1_xy = np.array(self.object_centers['OBJECT1'][0:2])
@@ -440,11 +454,13 @@ class Environment(object):
         """
         Constrains z-axis of robot's end-effector to always be above the table.
         """
-        if len(waypt) < 10:
-            waypt = np.append(waypt.reshape(7), np.array([0]))
-            waypt[2] += math.pi
-        self.robot.SetDOFValues(waypt)
-        EE_link = self.robot.GetLinks()[8]
+        # if len(waypt) < 10:
+        #     waypt = np.append(waypt.reshape(self.num_dofs), np.array([0]))
+        #     waypt[2] += math.pi
+        # self.robot.SetDOFValues(waypt)
+        self.robot.SetActiveDOFValues(waypt)
+        # EE_link = self.robot.GetLinks()[8]
+        EE_link = self.robot.GetLink('tool0')
         EE_coord_z = EE_link.GetTransform()[2][3]
         if EE_coord_z > -0.1016:
             return 0
@@ -454,23 +470,28 @@ class Environment(object):
         """
         Constrains orientation of robot's end-effector to be holding coffee mug upright.
         """
-        if len(waypt) < 10:
-            waypt = np.append(waypt.reshape(7), np.array([0]))
-            waypt[2] += math.pi
-        self.robot.SetDOFValues(waypt)
-        EE_link = self.robot.GetLinks()[7]
+        # if len(waypt) < 10:
+        #     waypt = np.append(waypt.reshape(self.num_dofs), np.array([0]))
+        #     waypt[2] += math.pi
+        # self.robot.SetDOFValues(waypt)
+        self.robot.SetActiveDOFValues(waypt)
+        # TODO How do we get/know the ee link?
+        # EE_link = self.robot.GetLinks()[7]
+        EE_link = self.robot.GetLink('tool0')
         return EE_link.GetTransform()[:2,:3].dot([1,0,0])
 
     def coffee_constraint_derivative(self, waypt):
         """
         Analytic derivative for coffee constraint.
         """
-        if len(waypt) < 10:
-            waypt = np.append(waypt.reshape(7), np.array([0]))
-            waypt[2] += math.pi
-        self.robot.SetDOFValues(waypt)
-        world_dir = self.robot.GetLinks()[7].GetTransform()[:3,:3].dot([1,0,0])
-        return np.array([np.cross(self.robot.GetJoints()[i].GetAxis(), world_dir)[:2] for i in range(7)]).T.copy()
+        # if len(waypt) < 10:
+        #     waypt = np.append(waypt.reshape(self.num_dofs), np.array([0]))
+        #     waypt[2] += math.pi
+        # self.robot.SetDOFValues(waypt)
+        self.robot.SetActiveDOFValues(waypt)
+        # world_dir = self.robot.GetLinks()[7].GetTransform()[:3,:3].dot([1,0,0])
+        world_dir = EE_link = self.robot.GetLink('tool0').GetTransform()[:3,:3].dot([1,0,0])
+        return np.array([np.cross(self.robot.GetJoints()[i].GetAxis(), world_dir)[:2] for i in range(self.num_dofs)]).T.copy()
 
     # ---- Helper functions ---- #
 
@@ -480,9 +501,12 @@ class Environment(object):
         ----
         curr_pos - 7x1 vector of current joint angles (degrees)
         """
-        pos = np.array([curr_pos[0][0],curr_pos[1][0],curr_pos[2][0]+math.pi,curr_pos[3][0],curr_pos[4][0],curr_pos[5][0],curr_pos[6][0],0,0,0])
+        # TODO Convert to num_dofs dim
+        # pos = np.array([curr_pos[0][0],curr_pos[1][0],curr_pos[2][0]+math.pi,curr_pos[3][0],curr_pos[4][0],curr_pos[5][0],curr_pos[6][0],0,0,0])
+        pos = np.array([curr_pos[0][0],curr_pos[1][0],curr_pos[2][0]+math.pi,curr_pos[3][0],curr_pos[4][0],curr_pos[5][0]])
 
-        self.robot.SetDOFValues(pos)
+        # self.robot.SetDOFValues(pos)
+        self.robot.SetActiveDOFValues(pos)
 
     def kill_environment(self):
         """

@@ -25,6 +25,8 @@ class PIDController(object):
 	"""
 
 	def __init__(self, P, I, D, epsilon, max_cmd):
+		# TODO generalize
+		self.num_dofs = 6
 		# ----- PID Parameter Setup ----- #
 
 		# Basic PID controller initialization.
@@ -34,7 +36,7 @@ class PIDController(object):
 		self.epsilon = epsilon
 
 		# Stores maximum COMMANDED joint torques.
-		self.max_cmd = max_cmd 
+		self.max_cmd = max_cmd * np.eye(self.num_dofs)
 
 		# Tracks running time since beginning and end of the path.
 		self.path_start_T = None
@@ -48,7 +50,7 @@ class PIDController(object):
 		self.traj = trajectory
 
 		# Save the intermediate target configuration. 
-		self.target_pos = self.traj.waypts[0].reshape((7,1))
+		self.target_pos = self.traj.waypts[0].reshape((self.num_dofs,1))
 
 	def get_command(self, current_pos):
 		"""
@@ -65,11 +67,11 @@ class PIDController(object):
 		# First update the target position if needed.
 		# Check if the arm is at the start of the path to execute.
 		if self.path_start_T is None:
-			dist_from_start = -((current_pos - self.traj.waypts[0].reshape((7,1)) + math.pi)%(2*math.pi) - math.pi)
+			dist_from_start = -((current_pos - self.traj.waypts[0].reshape((self.num_dofs,1)) + math.pi)%(2*math.pi) - math.pi)
 			dist_from_start = np.fabs(dist_from_start)
 
 			# Check if every joint is close enough to start configuration.
-			is_at_start = all([dist_from_start[i] < self.epsilon for i in range(7)])
+			is_at_start = all([dist_from_start[i] < self.epsilon for i in range(self.num_dofs)])
 			if is_at_start:
 				self.path_start_T = time.time()
 		else:			
@@ -80,11 +82,11 @@ class PIDController(object):
 
 			# Check if the arm reached the goal.
 			if self.path_end_T is None:
-				dist_from_goal = -((current_pos - self.traj.waypts[-1].reshape((7,1)) + math.pi)%(2*math.pi) - math.pi)
+				dist_from_goal = -((current_pos - self.traj.waypts[-1].reshape((self.num_dofs,1)) + math.pi)%(2*math.pi) - math.pi)
 				dist_from_goal = np.fabs(dist_from_goal)
 
 				# Check if every joint is close enough to goal configuration.
-				is_at_goal = all([dist_from_goal[i] < self.epsilon for i in range(7)])
+				is_at_goal = all([dist_from_goal[i] < self.epsilon for i in range(self.num_dofs)])
 				if is_at_goal:
 					self.path_end_T = time.time()
 
@@ -93,7 +95,7 @@ class PIDController(object):
 		cmd = -self.pid.update_PID(error)
 
 		# Check if each angular torque is within set limits.
-		for i in range(7):
+		for i in range(self.num_dofs):
 			if cmd[i][i] > self.max_cmd[i][i]:
 				cmd[i][i] = self.max_cmd[i][i]
 			if cmd[i][i] < -self.max_cmd[i][i]:

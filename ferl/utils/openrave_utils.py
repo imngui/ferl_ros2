@@ -15,11 +15,11 @@ import os
 
 # Silence the planning logger to prevent spam.
 logger = logging.getLogger('openrave_utils')
-logging.basicConfig(filename='logs.log', level=logging.INFO)
+# logging.basicConfig(filename='logs.log', level=logging.INFO)
 
 
 # robot_starting_dofs = np.array([-1, 2, 0, 2, 0, 4, 0, 1.11022302e-16,  -1.11022302e-16, 3.33066907e-16])
-robot_starting_dofs = np.array([0, 0, -1.5708, 0, 0, 0, 0])
+robot_starting_dofs = np.array([0.0, -1.5708, 0, -1.5708, 0, 0])
 
 def initialize(model_filename='ur5e', envXML=None, viewer=True):
 	'''
@@ -53,13 +53,24 @@ def initialize(model_filename='ur5e', envXML=None, viewer=True):
 	robot = env.GetRobots()[0]
 	robot.SetActiveManipulator('arm')
 	manip = robot.GetManipulator('arm')
-	active_dofs = np.arange(0, len(robot.GetJoints()))
+	active_dofs = manip.GetArmIndices()
+ 
+	# print(dir(robot))
+	# print(manip.GetArmJoints())
+ 
+	# print("Gripper dof: ", manip.GetGripperDOF())
+	# print("Arm dof: ", manip.GetArmDOF())
+	# print("Arm Indices: ", manip.GetArmIndices())
+ 
+	# print(dir(robot.GetJoints()[0]))
+	# print(robot.GetJoints()[0].GetName())
+	# print("Joint Names: ", [joint.GetName() for joint in robot.GetJoints()])
 	
 	# Generate the ik solver
 	# ikmodel = databases.inversekinematics.InverseKinematicsModel(robot, iktype=IkParameterization.Type.Transform6D)
 	# if not ikmodel.load():
 	# 	ikmodel.autogenerate()
-  
+	# print(dir(robot))  
 	# print("Generated IK")
 	# Generate a controller
 	multicontroller = openravepy.RaveCreateMultiController(env, '')
@@ -71,8 +82,7 @@ def initialize(model_filename='ur5e', envXML=None, viewer=True):
 	multicontroller.AttachController(controller, manip.GetArmIndices(), 0)
  
 	robot.SetActiveDOFs(active_dofs)
-	robot.SetDOFValues(robot_starting_dofs)
- 
+	robot.SetActiveDOFValues(robot_starting_dofs) 
 
 	if viewer:
 		env.SetViewer('qtosg')
@@ -174,9 +184,11 @@ def plotCupTraj(env,robot,bodies,waypts,color=[0,1,0], increment=1):
 	for i in range(0,len(waypts),increment):
 		waypoint = waypts[i]
 		print("waypt: " +str(waypoint))
-		dof = np.append(waypoint, np.array([1]))
-		dof[2] += math.pi
-		robot.SetDOFValues(dof)
+		dof = waypoint
+		# dof = np.append(waypoint, np.array([1]))
+		# dof[2] += math.pi
+		# robot.SetDOFValues(dof)
+		robot.SetActiveDOFValues(dof)
 
 		links = robot.GetLinks()
 		manipTf = links[7].GetTransform() 
@@ -227,9 +239,11 @@ def plotPoints(env,robot,bodies,waypts,colors):
 	"""
 	for i in range(len(waypts)):
 		waypoint = waypts[i]
-		dof = np.append(waypoint, np.array([1, 1, 1]))
-		dof[2] += math.pi
-		robot.SetDOFValues(dof)
+		# dof = np.append(waypoint, np.array([1, 1, 1]))
+		# dof[2] += math.pi
+		# robot.SetDOFValues(dof)
+		dof = waypoint
+		robot.SetActiveDOFValues(dof)
 		coord = robotToCartesian(robot)
 		if np.linalg.norm(coord[6][:2]) < 0.45 and coord[6][2]<0.45:
 			size = 0.005
@@ -243,9 +257,11 @@ def plotTraj(env,robot,bodies,waypts, size=10, color=[0, 1, 0]):
 	"""
 	for i in range(len(waypts)):
 		waypoint = waypts[i]
-		dof = np.append(waypoint, np.array([1]))
-		dof[2] += math.pi
-		robot.SetDOFValues(dof)
+		# dof = np.append(waypoint, np.array([1]))
+		# dof[2] += math.pi
+		# robot.SetDOFValues(dof)
+		dof = waypoint
+		robot.SetActiveDOFValues(dof)
 		coord = robotToCartesian(robot)
 		plotSphere(env, bodies, coord[6], size, color)
 

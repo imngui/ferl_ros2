@@ -7,6 +7,7 @@ class Trajectory(object):
 	interpolating, downsampling waypoints, upsampling waypoints, etc.
 	"""
 	def __init__(self, waypts, waypts_time):
+		self.num_dofs = 6
 		self.waypts = waypts
 		self.waypts_time = waypts_time
 		self.num_waypts = len(waypts)
@@ -28,7 +29,7 @@ class Trajectory(object):
 		assert len(self.waypts) > 1, "Cannot upsample a one-waypoint trajectory."
 
 		timestep = (self.waypts_time[-1] - self.waypts_time[0]) / (num_waypts - 1)
-		waypts = np.zeros((num_waypts,7))
+		waypts = np.zeros((num_waypts,self.num_dofs))
 		waypts_time = [None]*num_waypts
 
 		t = self.waypts_time[0]
@@ -60,13 +61,13 @@ class Trajectory(object):
 		assert len(self.waypts) > 1, "Cannot downsample a one-waypoint trajectory."
 
 		timestep = (self.waypts_time[-1] - self.waypts_time[0]) / (num_waypts - 1)
-		waypts = np.zeros((num_waypts,7))
+		waypts = np.zeros((num_waypts,self.num_dofs))
 		waypts_time = [None]*num_waypts
 
 		for index in range(num_waypts):
 			t = self.waypts_time[0] + index * timestep
 			waypts_time[index] = t
-			waypts[index,:] = self.interpolate(t).reshape((1,7))
+			waypts[index,:] = self.interpolate(t).reshape((1,self.num_dofs))
 
 		return Trajectory(waypts, waypts_time)
 
@@ -92,7 +93,7 @@ class Trajectory(object):
 			curr_t = self.waypts_time[curr_waypt_idx]
 			next_t = self.waypts_time[curr_waypt_idx + 1]
 			waypt = curr_waypt + (next_waypt - curr_waypt) * ((t - curr_t) / (next_t - curr_t))
-		waypt = np.array(waypt).reshape((7,1))
+		waypt = np.array(waypt).reshape((self.num_dofs,1))
 		return waypt
 
 	def deform(self, u_h, t, alpha, n):
@@ -123,14 +124,14 @@ class Trajectory(object):
 
 		# ---- Deformation process ---- #
 		waypts_deform = copy.deepcopy(self.waypts)
-		gamma = np.zeros((n,7))
+		gamma = np.zeros((n,self.num_dofs))
 		deform_waypt_idx = int((t - self.waypts_time[0]) / self.timestep) + 1
 
 		if (deform_waypt_idx + n) > self.num_waypts:
 			print("Deforming too close to end. Returning same trajectory")
 			return Trajectory(waypts_deform, self.waypts_time)
 
-		for joint in range(7):
+		for joint in range(self.num_dofs):
 			gamma[:,joint] = alpha*np.dot(H, u_h[joint])
 		waypts_deform[deform_waypt_idx : n + deform_waypt_idx, :] += gamma
 		return Trajectory(waypts_deform, self.waypts_time)

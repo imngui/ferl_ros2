@@ -23,6 +23,7 @@ class TrajoptPlanner(object):
 
 		# Set OpenRAVE environment.
 		self.environment = environment
+		self.num_dofs = environment.env.GetRobots()[0].GetActiveDOF()
 
 	# -- Interpolate feature value between neighboring waypoints to help planner optimization. -- #
 
@@ -58,8 +59,8 @@ class TrajoptPlanner(object):
 
 		input waypoint, output scalar cost
 		"""
-		prev_waypt = waypt[0:7]
-		curr_waypt = waypt[7:14]
+		prev_waypt = waypt[0:self.num_dofs]
+		curr_waypt = waypt[self.num_dofs:2*self.num_dofs]
 		feature_idx = self.environment.feature_list.index('origin')
 		feature = self.interpolate_features(curr_waypt, prev_waypt, feature_idx)
 		return feature*self.environment.weights[feature_idx]*np.linalg.norm(curr_waypt - prev_waypt)
@@ -70,8 +71,8 @@ class TrajoptPlanner(object):
 		---
 		input waypoint, output scalar cost
 		"""
-		prev_waypt = waypt[0:7]
-		curr_waypt = waypt[7:14]
+		prev_waypt = waypt[0:self.num_dofs]
+		curr_waypt = waypt[self.num_dofs:2*self.num_dofs]
 		feature_idx = self.environment.feature_list.index('table')
 		feature = self.interpolate_features(curr_waypt, prev_waypt, feature_idx)
 		return feature*self.environment.weights[feature_idx]*np.linalg.norm(curr_waypt - prev_waypt)
@@ -82,8 +83,8 @@ class TrajoptPlanner(object):
 		---
 		input waypoint, output scalar cost
 		"""
-		prev_waypt = waypt[0:7]
-		curr_waypt = waypt[7:14]
+		prev_waypt = waypt[0:self.num_dofs]
+		curr_waypt = waypt[self.num_dofs:2*self.num_dofs]
 		feature_idx = self.environment.feature_list.index('coffee')
 		feature = self.interpolate_features(curr_waypt, prev_waypt, feature_idx)
 		return feature*self.environment.weights[feature_idx]*np.linalg.norm(curr_waypt - prev_waypt)
@@ -94,8 +95,8 @@ class TrajoptPlanner(object):
 		---
 		input waypoint, output scalar cost
 		"""
-		prev_waypt = waypt[0:7]
-		curr_waypt = waypt[7:14]
+		prev_waypt = waypt[0:self.num_dofs]
+		curr_waypt = waypt[self.num_dofs:2*self.num_dofs]
 		feature_idx = self.environment.feature_list.index('laptop')
 		feature = self.interpolate_features(curr_waypt, prev_waypt, feature_idx)
 		return feature*self.environment.weights[feature_idx]*np.linalg.norm(curr_waypt - prev_waypt)
@@ -106,8 +107,8 @@ class TrajoptPlanner(object):
 		---
 		input waypoint, output scalar cost
 		"""
-		prev_waypt = waypt[0:7]
-		curr_waypt = waypt[7:14]
+		prev_waypt = waypt[0:self.num_dofs]
+		curr_waypt = waypt[self.num_dofs:2*self.num_dofs]
 		feature_idx = self.environment.feature_list.index('human')
 		feature = self.interpolate_features(curr_waypt, prev_waypt, feature_idx)
 		return feature*self.environment.weights[feature_idx]*np.linalg.norm(curr_waypt - prev_waypt)
@@ -118,8 +119,8 @@ class TrajoptPlanner(object):
 		---
 		input waypoint, output scalar cost
 		"""
-		prev_waypt = waypt[0:7]
-		curr_waypt = waypt[7:14]
+		prev_waypt = waypt[0:self.num_dofs]
+		curr_waypt = waypt[self.num_dofs:2*self.num_dofs]
 		# get the number of learned features
 		n_learned = self.environment.feature_list.count('learned_feature')
 	
@@ -152,12 +153,12 @@ class TrajoptPlanner(object):
 			NUM_STEPS = 4
 			for step in range(NUM_STEPS):
 				delta = torch.tensor((1.0 + step)/NUM_STEPS, requires_grad=True)
-				inter_waypt = x[:7] + delta * (x[7:] - x[:7])
+				inter_waypt = x[:self.num_dofs] + delta * (x[self.num_dofs:] - x[:self.num_dofs])
 				# Compute feature value.
 				z = self.environment.feature_func_list[feat_idx](self.environment.raw_features(inter_waypt).float(), torchify=True)
 				feat_val = feat_val + z
 			y = feat_val / torch.tensor(float(NUM_STEPS), requires_grad=True)
-			y = y * torch.tensor(self.environment.weights[-n_learned+i:], requires_grad=True) * torch.norm(x[7:] - x[:7])
+			y = y * torch.tensor(self.environment.weights[-n_learned+i:], requires_grad=True) * torch.norm(x[self.num_dofs:] - x[:self.num_dofs])
 			y.backward()
 			J.append(x.grad.data.numpy())
 		return np.sum(np.array(J), axis = 0).reshape((1,-1))
@@ -179,12 +180,15 @@ class TrajoptPlanner(object):
 			waypts_plan -- A downsampled trajectory resulted from the TrajOpt
 			optimization problem solution.
 		"""
-		# print("Prev Current: ", self.environment.robot.GetDOFValues())
+		print("start: ", start)
+		print("goal: ", goal)
+  
+		print("Current: ", self.environment.robot.GetDOFValues())
 
 		# --- Initialization --- #
-		if len(start) < 8:
-			aug_start = np.append(start.reshape(7), np.array([0]))
-		self.environment.robot.SetDOFValues(aug_start)
+		# if len(start) < 8:
+		# 	aug_start = np.append(start.reshape(7), np.array([0]))
+		# self.environment.robot.SetDOFValues(aug_start)
 
 		# print("Start: ", aug_start)
 		# print("Current: ", self.environment.robot.GetDOFValues())
@@ -192,7 +196,8 @@ class TrajoptPlanner(object):
 		# --- Linear interpolation seed --- #
 		if traj_seed is None:
 			# print("Using straight line initialization!")
-			init_waypts = np.zeros((self.num_waypts, 7))
+			init_waypts = np.zeros((self.num_waypts, self.num_dofs))
+			# print("waypt: ", init_waypts)
 			for count in range(self.num_waypts):
 				init_waypts[count, :] = start + count/(self.num_waypts - 1.0)*(goal - start)
 		else:
@@ -210,7 +215,7 @@ class TrajoptPlanner(object):
 					"type": "pose",
 					"params": {"xyz" : xyz_target,
 								"wxyz" : quat_target,
-								"link": "j2s7s300_link_7", # TODO: Change this to the correct link name.
+								"link": "tool0", # TODO: Change this to the correct link name.
 								"rot_coeffs" : [0, 0, 0],
 								"pos_coeffs" : [35, 35, 35],
 								}
@@ -228,7 +233,7 @@ class TrajoptPlanner(object):
 		request = {
 			"basic_info": {
 				"n_steps": self.num_waypts,
-				"manip" : "manipulator",
+				"manip" : "arm",
 				"start_fixed" : True,
 				"max_iter" : self.MAX_ITER
 			},
@@ -250,22 +255,22 @@ class TrajoptPlanner(object):
 		prob = trajoptpy.ConstructProblem(s, self.environment.env)
 		for t in range(1, self.num_waypts):
 			if 'coffee' in self.environment.feature_list:
-				prob.AddCost(self.coffee_cost, [(t-1, j) for j in range(7)]+[(t, j) for j in range(7)], "coffee%i"%t)
+				prob.AddCost(self.coffee_cost, [(t-1, j) for j in range(self.num_dofs)]+[(t, j) for j in range(self.num_dofs)], "coffee%i"%t)
 			if 'table' in self.environment.feature_list:
-				prob.AddCost(self.table_cost, [(t-1, j) for j in range(7)]+[(t, j) for j in range(7)], "table%i"%t)
+				prob.AddCost(self.table_cost, [(t-1, j) for j in range(self.num_dofs)]+[(t, j) for j in range(self.num_dofs)], "table%i"%t)
 			if 'laptop' in self.environment.feature_list:
-				prob.AddCost(self.laptop_cost, [(t-1, j) for j in range(7)]+[(t, j) for j in range(7)], "laptop%i"%t)
+				prob.AddCost(self.laptop_cost, [(t-1, j) for j in range(self.num_dofs)]+[(t, j) for j in range(self.num_dofs)], "laptop%i"%t)
 			if 'origin' in self.environment.feature_list:
-				prob.AddCost(self.origin_cost, [(t-1, j) for j in range(7)]+[(t, j) for j in range(7)], "origin%i"%t)
+				prob.AddCost(self.origin_cost, [(t-1, j) for j in range(self.num_dofs)]+[(t, j) for j in range(self.num_dofs)], "origin%i"%t)
 			if 'human' in self.environment.feature_list:
-				prob.AddCost(self.human_cost, [(t-1, j) for j in range(7)]+[(t, j) for j in range(7)], "human%i"%t)
+				prob.AddCost(self.human_cost, [(t-1, j) for j in range(self.num_dofs)]+[(t, j) for j in range(self.num_dofs)], "human%i"%t)
 			if 'efficiency' in self.environment.feature_list:
-				prob.AddCost(self.efficiency_cost, [(t-1, j) for j in range(7)]+[(t, j) for j in range(7)], "efficiency%i"%t)
+				prob.AddCost(self.efficiency_cost, [(t-1, j) for j in range(self.num_dofs)]+[(t, j) for j in range(self.num_dofs)], "efficiency%i"%t)
 			if 'learned_feature' in self.environment.feature_list:
-				prob.AddErrorCost(self.learned_feature_costs, self.learned_feature_cost_derivatives, [(t-1, j) for j in range(7)]+[(t, j) for j in range(7)], "ABS", "learned_features%i"%t)
+				prob.AddErrorCost(self.learned_feature_costs, self.learned_feature_cost_derivatives, [(t-1, j) for j in range(self.num_dofs)]+[(t, j) for j in range(self.num_dofs)], "ABS", "learned_features%i"%t)
 				# [(t-1, j) for j in range(7)]+
 		for t in range(1, self.num_waypts - 1):
-			prob.AddConstraint(self.environment.table_constraint, [(t, j) for j in range(7)], "INEQ", "up%i"%t)
+			prob.AddConstraint(self.environment.table_constraint, [(t, j) for j in range(self.num_dofs)], "INEQ", "up%i"%t)
 
 		result = trajoptpy.OptimizeProblem(prob)
 		return result.GetTraj()

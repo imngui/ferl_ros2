@@ -25,20 +25,28 @@ def cmd_to_JointTorqueMsg(cmd):
 	
 	return jointCmd
 
-def cmd_to_JointVelocityMsg(cmd):
+def cmd_to_JointTrajMsg(joint_names, cmd):
 	"""
-	Returns a JointVelocity Kinova msg from an array of velocities
+	Returns a 
 	"""
-	jointCmd = JointTrajectoryPoint()
-	jointCmd.velocities[0] = cmd[0][0]
-	jointCmd.velocities[1] = cmd[1][1]
-	jointCmd.velocities[2] = cmd[2][2]
-	jointCmd.velocities[3] = cmd[3][3]
-	jointCmd.velocities[4] = cmd[4][4]
-	jointCmd.velocities[5] = cmd[5][5]
-	jointCmd.velocities[6] = cmd[6][6]
-
-	return jointCmd
+	joint_cmd = JointTrajectoryPoint()
+	joint_vel = [cmd[i][i] for i in range(len(joint_names))]
+	joint_cmd.velocities = joint_vel
+	# jointCmd.velocities[0] = cmd[0][0]
+	# jointCmd.velocities[1] = cmd[1][1]
+	# jointCmd.velocities[2] = cmd[2][2]
+	# jointCmd.velocities[3] = cmd[3][3]
+	# jointCmd.velocities[4] = cmd[4][4]
+	# jointCmd.velocities[5] = cmd[5][5]
+	# jointCmd.velocities[6] = cmd[6][6]
+	joint_cmd.time_from_start = rclpy.duration.Duration(seconds=1.0).to_msg()
+ 
+	traj_msg = JointTrajectory()
+	traj_msg.joint_names = joint_names
+ 
+	traj_msg.points = [joint_cmd]
+ 
+	return traj_msg
 
 def waypts_to_PoseArrayMsg(cart_waypts):
 	"""

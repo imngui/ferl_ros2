@@ -31,6 +31,8 @@ from ferl.utils.trajectory import Trajectory
 import numpy as np
 import pickle
 import ast
+import threading
+
 
 def convert_string_array_to_dict(string_array):
     feat_range_dict = {}
@@ -80,7 +82,9 @@ class FeatureElicitator(Node):
         self.register_callbacks()
 
         # Run the main loop.
-        self.run()
+        self.run_thread = threading.Thread(target=self.run)
+        self.run_thread.start()
+        # self.run()
 
     def load_params(self):
         """
@@ -125,9 +129,9 @@ class FeatureElicitator(Node):
         # ----- General Setup ----- #
         self.prefix = self.get_parameter('setup.prefix').value
         pick = self.get_parameter('setup.start').value
-        self.start = np.array(pick)*(math.pi/180.0)
+        self.start = np.array(pick)#*(math.pi/180.0)
         place = self.get_parameter('setup.goal').value
-        self.goal = np.array(place)*(math.pi/180.0)
+        self.goal = np.array(place)#*(math.pi/180.0)
         self.goal_pose = self.get_parameter('setup.goal_pose').value
         self.T = self.get_parameter('setup.T').value
         self.timestep = self.get_parameter('setup.timestep').value
@@ -150,8 +154,12 @@ class FeatureElicitator(Node):
         feat_range = [FEAT_RANGE[feat_list[feat]] for feat in range(len(feat_list))]
         LF_dict = get_parameter_as_dict(self.get_parameter('setup.LF_dict').value)
         self.environment = Environment(model_filename, object_centers, feat_list, feat_range, np.array(weights), LF_dict)
-        # TODO: Setup Openrave env.
-        # TODO: Change to MoveIt! env.
+        self.num_dofs = self.environment.env.GetRobots()[0].GetActiveDOF()
+        
+        # Get joint names
+        self.joint_names = [self.environment.env.GetRobots()[0].GetJointFromDOFIndex(i).GetName() for i in self.environment.env.GetRobots()[0].GetManipulator('arm').GetArmIndices()]
+        print("num_joints: ", len(self.joint_names))
+        print("joint_names: ", self.joint_names)
 
 
         # ----- Planner Setup ----- #
@@ -167,13 +175,15 @@ class FeatureElicitator(Node):
         else:
             raise Exception('Planner {} not implemented.'.format(planner_type))
         
-        time.sleep(30)
+        # time.sleep(30)
         
         print("Planning trajectory...")
         print("Start: ", self.start)
         print("Goal: ", self.goal)
         print("Goal Pose: ", self.goal_pose)
+        tt = time.time()
         self.traj = self.planner.replan(self.start, self.goal, self.goal_pose, self.T, self.timestep)
+        self.get_logger().info(f"Planning time: {time.time() - tt}")
         self.traj_plan = self.traj.downsample(self.planner.num_waypts)
 
         # Track if you have reached the start/goal of the path.
@@ -198,9 +208,9 @@ class FeatureElicitator(Node):
         if controller_type == "pid":
             # P, I, D gains.
             # TODO: Change np.eye(7) to correct arm dofs.
-            P = self.get_parameter('controller.p_gain').value * np.eye(7)
-            I = self.get_parameter('controller.i_gain').value * np.eye(7)
-            D = self.get_parameter('controller.d_gain').value * np.eye(7)
+            P = self.get_parameter('controller.p_gain').value * np.eye(self.num_dofs)
+            I = self.get_parameter('controller.i_gain').value * np.eye(self.num_dofs)
+            D = self.get_parameter('controller.d_gain').value * np.eye(self.num_dofs)
 
             # Stores proximity threshold.
             epsilon = self.get_parameter('controller.epsilon').value
@@ -218,7 +228,7 @@ class FeatureElicitator(Node):
 
         # Stores the current COMMANDED joint torques.
         # TODO: Change np.eye(7) to correct arm dofs.
-        self.cmd = np.eye(7)
+        self.cmd = np.eye(self.num_dofs)
 
 
         # ----- Learner Setup ----- #
@@ -231,6 +241,7 @@ class FeatureElicitator(Node):
         self.feat_method = self.get_parameter('learner.type').value
         self.learner = PHRILearner(self.feat_method, self.environment, constants)
         # TODO: Implement PHRILearner class.
+        self.get_logger().info("Finished Init")
 
     def register_callbacks(self):
         """
@@ -238,10 +249,10 @@ class FeatureElicitator(Node):
         """
         # TODO: Figure out how to define the correct messages.
         # Create joint-velocity publisher.
-        self.vel_pub = self.create_publisher(JointTrajectoryPoint, self.prefix + '/in/joint_velocity', 1)
+        self.vel_pub = self.create_publisher(JointTrajectory, self.prefix + '/in/joint_velocity', 1)
 
         # Create subscriber to joint_angles.
-        self.joint_angles_sub = self.create_subscription(JointState, self.prefix + '/out/joint_angles', self.joint_angles_callback, 1)
+        self.joint_angles_sub = self.create_subscription(JointState, '/joint_states', self.joint_angles_callback, 1)
         # Create subscriber to joint_torques.
         self.joint_torques_sub = self.create_subscription(JointState, self.prefix + '/out/joint_torques', self.joint_torques_callback, 1)
 
@@ -253,16 +264,16 @@ class FeatureElicitator(Node):
 
         # Read the current joint angles from the robot.
         # TODO: Find a more generic way to do this for different dof robots.
-        curr_pos = np.array(msg.position).reshape(7,1)
+        curr_pos = np.array(msg.position).reshape(self.num_dofs,1)
         # curr_pos = np.array([msg.joint1, msg.joint2, msg.joint3, msg.joint4, msg.joint5, msg.joint6, msg.joint7]).reshape(7, 1)
 
         # Convert to radians.
-        curr_pos = curr_pos*(math.pi/180.0)
+        curr_pos = curr_pos#*(math.pi/180.0)
 
         # Check if we are in feature learning mode.
         if self.feature_learning_mode:
             # Allow the person to mvoe the end effector with no control resistance.
-            self.cmd = np.zeros((7, 7))
+            self.cmd = np.zeros((self.num_dofs, self.num_dofs))
 
             # If we are tracking feature data, update raw features and time.
             if self.track_data:
@@ -289,10 +300,10 @@ class FeatureElicitator(Node):
         """
 
         # Read the current joint torques from the robot.
-        torque_curr = np.array(msg.effort).reshape(7,1)
+        torque_curr = np.array(msg.effort).reshape(self.num_dofs,1)
         # torque_curr = np.array([msg.joint1, msg.joint2, msg.joint3, msg.joint4, msg.joint5, msg.joint6, msg.joint7]).reshape(7, 1)
         interaction = False
-        for i in range(7):
+        for i in range(self.num_dofs):
             # Center torques around zero.
             torque_curr[i][0] -= self.INTERACTION_TORQUE_THRESHOLD[i]
             # Check if interaction was not noise.
@@ -401,7 +412,7 @@ class FeatureElicitator(Node):
         # ros2_utils.start_admittance_mode(self.prefix, self)
 
         # Publish to ROS at 100hz.
-        rate = self.create_rate(100)
+        rate = self.create_rate(1)
 
         print("----------------------------------")
         print("Moving robot, type Q to quit:")
@@ -413,10 +424,11 @@ class FeatureElicitator(Node):
                     break
 
             # TODO: Implement ros2_utils
-            # self.vel_pub.publish(ros2_utils.cmd_to_JointVelocityMsg(self.cmd))
+            print("HERE")
+            self.vel_pub.publish(ros2_utils.cmd_to_JointTrajMsg(self.joint_names, self.cmd))
             rate.sleep()
 
-        print("----------------------------------")
+        self.get_logger().info("----------------------------------")
         # TODO: Implement ros2_utils
         # ros2_utils.stop_admittance_mode(self.prefix, node)
 
