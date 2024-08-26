@@ -58,8 +58,10 @@ def generate_cost_perturb_trajs(planner, env, std, n_traj, start, goal, goal_pos
 		# perturb weights in env
 		env.weights = gt_weights + np.random.normal(loc=0, scale=std, size=env.weights.shape[0])
 		# perturb start & goal slightly
-		cur_start = start + np.random.normal(loc=0, scale=std, size=7)
-		cur_goal = goal + np.random.normal(loc=0, scale=std, size=7)
+		# cur_start = start + np.random.normal(loc=0, scale=std, size=7)
+		# cur_goal = goal + np.random.normal(loc=0, scale=std, size=7)
+		cur_start = start + np.random.normal(loc=0, scale=std, size=6)
+		cur_goal = goal + np.random.normal(loc=0, scale=std, size=6)
 		# plan with perturbed weights
 		traj = planner.replan(cur_start, cur_goal, goal_pose, T, timestep, seed=None).waypts
 		# append
@@ -91,7 +93,8 @@ def generate_Gaus_MaxEnt_trajs(planner, scale, n_traj, start, goal, goal_pose, T
 	for _ in range(n_traj - 1):
 		cur_traj = []
 		for i in range(opt_traj.waypts.shape[0]):
-			cur_traj.append(opt_traj.waypts[i, :] + np.random.normal(loc=0, scale=scale, size=7))
+			# cur_traj.append(opt_traj.waypts[i, :] + np.random.normal(loc=0, scale=scale, size=7))
+			cur_traj.append(opt_traj.waypts[i, :] + np.random.normal(loc=0, scale=scale, size=6))
 		expert_demos.append(np.array(cur_traj))
 
 	return expert_demos
@@ -111,7 +114,8 @@ def init_env(feat_list, weights, env_only=False,
 		obj_center_dict	Dict of human & laptop positions
 		feat_range_dict	Dict of factors for the different features to scale them to 0-1.
 	"""
-	model_filename = "jaco_dynamics"
+	# model_filename = "jaco_dynamics"
+	model_filename = "ur5e"
 	feat_range = [feat_range[feat_list[feat]] for feat in range(len(feat_list))]
 
 	# Planner

@@ -7,6 +7,7 @@ from rcl_interfaces.msg import ParameterDescriptor # Enables the description of 
 import math
 import sys, select, os
 import time
+import torch
 
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from std_msgs.msg import String, Float64MultiArray
@@ -253,9 +254,9 @@ class TestVel(Node):
         self.can_move = True
 
         # Create a client for the ServoCommandType service
-        self.switch_input_client = self.create_client(ServoCommandType, '/servo_node/switch_command_type')
-        # Call the service to enable TWIST command type
-        self.enable_twist_command()
+        # self.switch_input_client = self.create_client(ServoCommandType, '/servo_node/switch_command_type')
+        # # Call the service to enable TWIST command type
+        # self.enable_twist_command()
 
     def new_plan_callback(self):
         # Update openrave model
@@ -384,9 +385,9 @@ class TestVel(Node):
         self.twist_pub_ = self.create_publisher(TwistStamped, '/servo_node/delta_twist_cmds', 10)
 
         # # Create a client for the ServoCommandType service
-        # self.switch_input_client = self.create_client(ServoCommandType, '/servo_node/switch_command_type')
-        # # Call the service to enable TWIST command type
-        # self.enable_twist_command()
+        self.switch_input_client = self.create_client(ServoCommandType, '/servo_node/switch_command_type')
+        # Call the service to enable TWIST command type
+        self.enable_twist_command()
 
     def joint_angles_callback(self, msg):
         """

@@ -69,8 +69,10 @@ class DeepMaxEntIRL:
 		self.full_exp_data = np.empty((0, 97), float)
 
 		for s_g_trajs in s_g_exp_trajs:
-			self.starts.append(s_g_trajs[0][0, :7])
-			self.goals.append(s_g_trajs[0][-1, :7])
+			# self.starts.append(s_g_trajs[0][0, :7])
+			# self.goals.append(s_g_trajs[0][-1, :7])
+			self.starts.append(s_g_trajs[0][0, :6])
+			self.goals.append(s_g_trajs[0][-1, :6])
 			full_dim_trajs = map_to_raw_dim(self.env, s_g_trajs)
 			self.s_g_exp_trajs.append(full_dim_trajs)
 			for traj in full_dim_trajs:

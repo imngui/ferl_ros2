@@ -59,7 +59,8 @@ class PHRILearner(object):
                 return 2 * np.eye(u.shape[0])
 
             def u_constraint(u):
-                u_p = np.reshape(u, (7,1))
+                # u_p = np.reshape(u, (7,1))
+                u_p = np.reshape(u, (6,1))
                 waypts_deform_p = traj.deform(u_p, t, self.alpha, self.n).waypts
                 H_features = self.environment.featurize(waypts_deform_p, [i])[0]
                 Phi_H = sum(H_features)
@@ -68,7 +69,8 @@ class PHRILearner(object):
 
             def u_unconstrained(u):
                 lambda_u = 5000
-                u_p = np.reshape(u, (7,1))
+                # u_p = np.reshape(u, (7,1))
+                u_p = np.reshape(u, (6,1))
                 waypts_deform_p = traj.deform(u_p, t, self.alpha, self.n).waypts
                 H_features = self.environment.featurize(waypts_deform_p, [i])[0]
                 Phi_H = sum(H_features)
@@ -77,7 +79,8 @@ class PHRILearner(object):
 
             # Compute optimal action.
             u_h_opt = minimize(u_unconstrained, np.squeeze(u_h), method='L-BFGS-B', jac=u_jacobian)
-            u_h_star = np.reshape(u_h_opt.x, (7, 1))
+            # u_h_star = np.reshape(u_h_opt.x, (7, 1))
+            u_h_star = np.reshape(u_h_opt.x, (6, 1))
 
             waypts_deform_p = traj.deform(u_h_star, t, self.alpha, self.n).waypts
             H_features = self.environment.featurize(waypts_deform_p)

@@ -14,8 +14,9 @@ import math
 import os
 
 # Silence the planning logger to prevent spam.
-logger = logging.getLogger('openrave_utils')
-# logging.basicConfig(filename='logs.log', level=logging.INFO)
+from rclpy.impl import rcutils_logger
+logger = rcutils_logger.RcutilsLogger(name="openrave_utils")
+ur5e_links = ['shoulder_link', 'upper_arm_link', 'forearm_link', 'wrist_1_link', 'wrist_2_link', 'wrist_3_link']
 
 
 # robot_starting_dofs = np.array([-1, 2, 0, 2, 0, 4, 0, 1.11022302e-16,  -1.11022302e-16, 3.33066907e-16])
@@ -84,6 +85,19 @@ def initialize(model_filename='ur5e', robot_starting_dofs=np.array([0.0, -1.5708
 	robot.SetActiveDOFs(active_dofs)
 	robot.SetActiveDOFValues(robot_starting_dofs) 
 
+	# links = np.array(dir(robot))
+	# logger.info(f'links: {np.array2string(links)}')
+
+	# c = robotToCartesian(robot)
+	# for cart in c:
+	# 	cc = np.array(cart)
+	# 	logger.info(f'cart: {np.array2string(cc)}')
+	
+
+	# logger.info(f'cart: {np.array2string(c)}')
+
+	# assert(1 == 2)
+
 	if viewer:
 		env.SetViewer('qtosg')
 		viewer = env.GetViewer()
@@ -96,6 +110,14 @@ def initialize(model_filename='ur5e', robot_starting_dofs=np.array([0.0, -1.5708
 
 	return env, robot
 
+def getLinks(robot):
+	links = [None] * robot.GetActiveDOF()
+	for link in robot.GetLinks():
+		name = link.GetName()
+		if name in ur5e_links:
+			links[ur5e_links.index(name)] = link
+	return links
+
 # ------- Conversion Utils ------- #
 
 def robotToCartesian(robot):
@@ -105,10 +127,13 @@ def robotToCartesian(robot):
 	------
 	Returns: 7-dimensional list of 3 xyz values
 	"""
-	links = robot.GetLinks()
-	cartesian = [None]*7
+	# links = robot.GetLinks()
+	# links = ['shoulder_link', 'upper_arm_link', 'forearm_link', 'wrist_1_link', 'wrist_2_link', 'wrist_3_link']
+	# logger.info(f'num links: {len(links)}')
+	links = getLinks(robot)
+	cartesian = [None]*(robot.GetActiveDOF()-1)
 	i = 0
-	for i in range(1,8):
+	for i in range(1,robot.GetActiveDOF()):
 		link = links[i]
 		tf = link.GetTransform()
 		cartesian[i-1] = tf[0:3,3]
@@ -122,10 +147,11 @@ def robotToOrientation(robot):
 	------
 	Returns: 7-dimensional list of 3 xyz values
 	"""
-	links = robot.GetLinks()
-	orientation = [None]*7
+	# links = robot.GetLinks()
+	links = getLinks(robot)
+	orientation = [None]*(robot.GetActiveDOF()-1)
 	i = 0
-	for i in range(1,8):
+	for i in range(1,robot.GetActiveDOF()):
 		link = links[i]
 		tf = link.GetTransform()
 		orientation[i-1] = tf[:3,:3]
@@ -140,8 +166,10 @@ def manipToCartesian(robot, offset_z):
 			offset in m from the base of the manip to the center
 	Returns: xyz of center of robot manipulator
 	"""
-	links = robot.GetLinks()
-	manipTf = links[7].GetTransform()
+	# links = robot.GetLinks()
+	# manipTf = links[7].GetTransform()
+	links = getLinks(robot)
+	manipTf = links[-1].GetTransform()
 	rot = manipTf[0:3,0:3]
 	xyz = manipTf[0:3,3]
 	offset = np.array([0,0,offset_z]).T
@@ -190,8 +218,10 @@ def plotCupTraj(env,robot,bodies,waypts,color=[0,1,0], increment=1):
 		# robot.SetDOFValues(dof)
 		robot.SetActiveDOFValues(dof)
 
-		links = robot.GetLinks()
-		manipTf = links[7].GetTransform() 
+		# links = robot.GetLinks()
+		# manipTf = links[7].GetTransform() 
+		links = getLinks(robot)
+		manipTf = links[-1].GetTransform()
 
 		# load mug into environment
 		# objects_path = os.path.join(get_package_share_directory('iact_control'),'/data')
@@ -245,11 +275,13 @@ def plotPoints(env,robot,bodies,waypts,colors):
 		dof = waypoint
 		robot.SetActiveDOFValues(dof)
 		coord = robotToCartesian(robot)
-		if np.linalg.norm(coord[6][:2]) < 0.45 and coord[6][2]<0.45:
+		# if np.linalg.norm(coord[6][:2]) < 0.45 and coord[6][2]<0.45:
+		if np.linalg.norm(coord[-1][:2]) < 0.45 and coord[-1][2]<0.45:
 			size = 0.005
 		else:
 			size = 0.015
-		plotSphere(env, bodies, coord[6], size, colors[i])
+		# plotSphere(env, bodies, coord[6], size, colors[i])
+		plotSphere(env, bodies, coord[-1], size, colors[i])
 
 def plotTraj(env,robot,bodies,waypts, size=10, color=[0, 1, 0]):
 	"""
@@ -263,7 +295,8 @@ def plotTraj(env,robot,bodies,waypts, size=10, color=[0, 1, 0]):
 		dof = waypoint
 		robot.SetActiveDOFValues(dof)
 		coord = robotToCartesian(robot)
-		plotSphere(env, bodies, coord[6], size, color)
+		# plotSphere(env, bodies, coord[6], size, color)
+		plotSphere(env, bodies, coord[-1], size, color)
 
 def plotSphere(env, bodies, coords, size=10, color=[0, 0, 1]):
 	"""
