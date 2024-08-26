@@ -27,6 +27,7 @@ setup(
     entry_points={
         'console_scripts': [
             'feature_elicitator = ferl.feature_elicitator:main',
+            'test_vel = ferl.test_vel:main',
         ],
     },
 )

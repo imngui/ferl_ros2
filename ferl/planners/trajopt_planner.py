@@ -8,7 +8,8 @@ import trajoptpy
 
 from ferl.utils.openrave_utils import *
 from ferl.utils.trajectory import Trajectory
-
+from rclpy.impl import rcutils_logger
+logger = rcutils_logger.RcutilsLogger(name="trajopt")
 
 class TrajoptPlanner(object):
 	"""
@@ -275,6 +276,118 @@ class TrajoptPlanner(object):
 		result = trajoptpy.OptimizeProblem(prob)
 		return result.GetTraj()
 
+	def trajOpt2(self, start, goal, goal_pose, traj_seed=None):
+		"""
+		Computes a plan from start to goal using trajectory optimizer.
+		Reference: http://joschu.net/docs/trajopt-paper.pdf
+		---
+		Paramters:
+			start -- The start position.
+			goal -- The goal position.
+			goal_pose -- The goal pose (optional: can be None).
+			traj_seed [optiona] -- An optional initial trajectory seed.
+
+		Returns:
+			waypts_plan -- A downsampled trajectory resulted from the TrajOpt
+			optimization problem solution.
+		"""
+
+		# --- Initialization --- #
+		# if len(start) < 8:
+		# 	aug_start = np.append(start.reshape(7), np.array([0]))
+		# self.environment.robot.SetDOFValues(aug_start)
+
+		# print("Start: ", aug_start)
+		# print("Current: ", self.environment.robot.GetDOFValues())
+
+		# logger.info(f'start dim: {start.shape}')
+		# logger.info(f'goal dim: {goal.shape}')
+
+		# --- Linear interpolation seed --- #
+		if traj_seed is None:
+			# print("Using straight line initialization!")
+			init_waypts = np.zeros((self.num_waypts, self.num_dofs))
+			# logger.info(f'waypts dim: {init_waypts.shape}')
+			# print("waypt: ", init_waypts)
+			for count in range(self.num_waypts):
+				temp = start + count/(self.num_waypts - 1.0)*(goal - start)
+				# logger.info(f'waypt dim: {temp.shape}')
+				init_waypts[count, :] = start + count/(self.num_waypts - 1.0)*(goal - start)
+		else:
+			print("Using trajectory seed initialization!")
+			init_waypts = traj_seed
+
+		# --- Request construction --- #
+		# If pose is given, must include pose constraint.
+		if goal_pose is not None:
+			# print("Using goal pose for trajopt computation.")
+			xyz_target = goal_pose
+			quat_target = [1, 0, 0, 0]  #wxyz
+			constraint = [
+				{
+					"type": "pose",
+					"params": {"xyz" : xyz_target,
+								"wxyz" : quat_target,
+								"link": "tool0", # TODO: Change this to the correct link name.
+								"rot_coeffs" : [0, 0, 0],
+								"pos_coeffs" : [35, 35, 35],
+								}
+				}
+			]
+		else:
+			# print("Using goal for trajopt computation.")
+			constraint = [
+				{
+					"type": "joint",
+					"params": {"vals": goal.tolist()}
+				}
+			]
+
+		request = {
+			"basic_info": {
+				"n_steps": self.num_waypts,
+				"manip" : "arm",
+				"start_fixed" : True,
+				"max_iter" : self.MAX_ITER
+			},
+			"costs": [
+			{
+				"type": "joint_vel",
+				"params": {"coeffs": [0.22]}
+			}
+			],
+			"constraints": constraint,
+			"init_info": {
+				"type": "given_traj",
+				"data": init_waypts.tolist()
+			}
+		}
+		print("Request: ", request)
+
+		s = json.dumps(request)
+		prob = trajoptpy.ConstructProblem(s, self.environment.env)
+		# for t in range(1, self.num_waypts):
+		# 	if 'coffee' in self.environment.feature_list:
+		# 		prob.AddCost(self.coffee_cost, [(t-1, j) for j in range(self.num_dofs)]+[(t, j) for j in range(self.num_dofs)], "coffee%i"%t)
+		# 	if 'table' in self.environment.feature_list:
+		# 		prob.AddCost(self.table_cost, [(t-1, j) for j in range(self.num_dofs)]+[(t, j) for j in range(self.num_dofs)], "table%i"%t)
+		# 	if 'laptop' in self.environment.feature_list:
+		# 		prob.AddCost(self.laptop_cost, [(t-1, j) for j in range(self.num_dofs)]+[(t, j) for j in range(self.num_dofs)], "laptop%i"%t)
+		# 	if 'origin' in self.environment.feature_list:
+		# 		prob.AddCost(self.origin_cost, [(t-1, j) for j in range(self.num_dofs)]+[(t, j) for j in range(self.num_dofs)], "origin%i"%t)
+		# 	if 'human' in self.environment.feature_list:
+		# 		prob.AddCost(self.human_cost, [(t-1, j) for j in range(self.num_dofs)]+[(t, j) for j in range(self.num_dofs)], "human%i"%t)
+		# 	if 'efficiency' in self.environment.feature_list:
+		# 		prob.AddCost(self.efficiency_cost, [(t-1, j) for j in range(self.num_dofs)]+[(t, j) for j in range(self.num_dofs)], "efficiency%i"%t)
+		# 	if 'learned_feature' in self.environment.feature_list:
+		# 		prob.AddErrorCost(self.learned_feature_costs, self.learned_feature_cost_derivatives, [(t-1, j) for j in range(self.num_dofs)]+[(t, j) for j in range(self.num_dofs)], "ABS", "learned_features%i"%t)
+				# [(t-1, j) for j in range(7)]+
+		for t in range(1, self.num_waypts - 1):
+			prob.AddConstraint(self.environment.table_constraint, [(t, j) for j in range(self.num_dofs)], "INEQ", "up%i"%t)
+
+		result = trajoptpy.OptimizeProblem(prob)
+		return result.GetTraj()
+
 	def replan(self, start, goal, goal_pose, T, timestep, seed=None):
 		"""
 		Replan the trajectory from start to goal given weights.
@@ -288,7 +401,8 @@ class TrajoptPlanner(object):
 		Returns:
 			traj [Trajectory] -- The optimal trajectory satisfying the arguments.
 		"""
-		waypts = self.trajOpt(start, goal, goal_pose, traj_seed=seed)
+		# waypts = self.trajOpt(start, goal, goal_pose, traj_seed=seed)
+		waypts = self.trajOpt2(start, goal, goal_pose, traj_seed=seed)
 		waypts_time = np.linspace(0.0, T, self.num_waypts)
 		traj = Trajectory(waypts, waypts_time)
 		return traj.upsample(int(T/timestep) + 1)

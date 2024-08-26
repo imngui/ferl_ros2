@@ -9,6 +9,9 @@ import time
 import math
 import numpy as np
 
+from rclpy.impl import rcutils_logger
+logger = rcutils_logger.RcutilsLogger(name="pid")
+
 #*******************************************************************
 # Translated from pid.cpp by Nathan Sprague
 # Jan. 2013 (Modified Jan. 2014)
@@ -92,6 +95,7 @@ class PID(object):
         self.num_dofs = 6
         self.set_gains(p_gain, i_gain, d_gain, i_min, i_max)
         self.reset()
+        self.i = 0
 
     def reset(self):
         """ Reset the state of this PID controller """
@@ -209,12 +213,16 @@ class PID(object):
 
         # Calculate proportional contribution to command
         p_term = self._p_gain * self._p_error
+        # p_str = np.array2string(p_term)
+        # logger.info(f"p: {p_str}")
 		
         # Calculate the integral error
         self._i_error += dt * self._p_error 
         
         # Calculate integral contribution to command
         i_term = self._i_gain * self._i_error
+        # i_str = np.array2string(i_term)
+        # logger.info(f"i: {i_str}")
         
         # Calculate the derivative error
         self._d_error = (self._p_error - self._p_error_last) / dt
@@ -222,7 +230,9 @@ class PID(object):
 
         # Calculate derivative contribution to command 
         d_term = self._d_gain * self._d_error
+        # d_str = np.array2string(d_term)
+        # logger.info(f"d: {d_str}\n")
         
         self._cmd = p_term + i_term + d_term
-
+        # self._cmd = np.eye(self.num_dofs) * dt * p_error
         return self._cmd

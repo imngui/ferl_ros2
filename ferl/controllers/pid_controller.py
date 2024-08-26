@@ -1,7 +1,12 @@
 import math
 import time
 
+import rclpy
+from rclpy.impl import rcutils_logger
+logger = rcutils_logger.RcutilsLogger(name="pid")
+
 from ferl.controllers import pid
+from ferl.controllers import npid
 
 import numpy as np
 
@@ -30,7 +35,10 @@ class PIDController(object):
 		# ----- PID Parameter Setup ----- #
 
 		# Basic PID controller initialization.
-		self.pid = pid.PID(P,I,D,0,0)
+		self.pid = pid.PID(P,I,D, -0.1, 0.1)
+
+		self.npid = npid.NPID(self.num_dofs)
+		self.npid.update_gains(P, I, D, 0.1, 0.0)
 
 		# Stores proximity threshold.
 		self.epsilon = epsilon
@@ -48,11 +56,16 @@ class PIDController(object):
 		"""
 		# Set the trajectory, which may be updated.
 		self.traj = trajectory
+		# for point in trajectory.waypts:
+		# 	p = np.array(point)
+		# 	p_str = np.array2string(p)
+		# 	logger.info(f"p: {p_str}")
+		# exit()
 
 		# Save the intermediate target configuration. 
 		self.target_pos = self.traj.waypts[0].reshape((self.num_dofs,1))
 
-	def get_command(self, current_pos):
+	def get_command(self, current_pos, current_vel):
 		"""
 		Reads the latest position of the robot and returns an
 		appropriate torque command to move the robot to the target.
@@ -63,12 +76,16 @@ class PIDController(object):
 		Returns:
 		    cmd - The next control command to get to the updated target.
 		"""
+		curr_str = np.array2string(current_pos)
+		# logger.info(f"curren: {curr_str}")
 
 		# First update the target position if needed.
 		# Check if the arm is at the start of the path to execute.
 		if self.path_start_T is None:
-			dist_from_start = -((current_pos - self.traj.waypts[0].reshape((self.num_dofs,1)) + math.pi)%(2*math.pi) - math.pi)
+			dist_from_start = current_pos - self.traj.waypts[0].reshape((self.num_dofs,1))
 			dist_from_start = np.fabs(dist_from_start)
+			dist_from_start_str = np.array2string(dist_from_start)
+			# logger.info(f"d2s: {dist_from_start_str}")
 
 			# Check if every joint is close enough to start configuration.
 			is_at_start = all([dist_from_start[i] < self.epsilon for i in range(self.num_dofs)])
@@ -79,10 +96,12 @@ class PIDController(object):
 
 			# Get next target position from position along trajectory.
 			self.target_pos = self.traj.interpolate(t + 0.1)
+			# target_str = np.array2string(self.target_pos.reshape((1,-1)))
+			# logger.info(f"target: {target_str}")
 
 			# Check if the arm reached the goal.
 			if self.path_end_T is None:
-				dist_from_goal = -((current_pos - self.traj.waypts[-1].reshape((self.num_dofs,1)) + math.pi)%(2*math.pi) - math.pi)
+				dist_from_goal = current_pos - self.traj.waypts[-1].reshape((self.num_dofs,1))
 				dist_from_goal = np.fabs(dist_from_goal)
 
 				# Check if every joint is close enough to goal configuration.
@@ -91,8 +110,14 @@ class PIDController(object):
 					self.path_end_T = time.time()
 
 		# Update cmd from PID based on current position.
-		error = -((self.target_pos - current_pos + math.pi)%(2*math.pi) - math.pi)
-		cmd = -self.pid.update_PID(error)
+		error = self.target_pos - current_pos
+		# error = self.traj.waypts[-1].reshape((self.num_dofs,1)) - current_pos
+		# err_str = np.array2string(np.array(error))
+		# logger.info(f"Error: {err_str}")
+		
+		# cmd = np.eye(self.num_dofs) * error
+		# cmd = self.pid.update_PID(error)
+		cmd = np.eye(self.num_dofs) * self.npid.calculate_control(current_pos, self.target_pos, current_vel)
 
 		# Check if each angular torque is within set limits.
 		for i in range(self.num_dofs):
