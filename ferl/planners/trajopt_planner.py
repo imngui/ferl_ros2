@@ -181,10 +181,10 @@ class TrajoptPlanner(object):
 			waypts_plan -- A downsampled trajectory resulted from the TrajOpt
 			optimization problem solution.
 		"""
-		print("start: ", start)
-		print("goal: ", goal)
+		# print("start: ", start)
+		# print("goal: ", goal)
   
-		print("Current: ", self.environment.robot.GetDOFValues())
+		# print("Current: ", self.environment.robot.GetDOFValues())
 
 		# --- Initialization --- #
 		# if len(start) < 8:
@@ -202,7 +202,7 @@ class TrajoptPlanner(object):
 			for count in range(self.num_waypts):
 				init_waypts[count, :] = start + count/(self.num_waypts - 1.0)*(goal - start)
 		else:
-			print("Using trajectory seed initialization!")
+			# print("Using trajectory seed initialization!")
 			init_waypts = traj_seed
 
 		# --- Request construction --- #
@@ -250,7 +250,7 @@ class TrajoptPlanner(object):
 				"data": init_waypts.tolist()
 			}
 		}
-		print("Request: ", request)
+		# print("Request: ", request)
 
 		s = json.dumps(request)
 		prob = trajoptpy.ConstructProblem(s, self.environment.env)
@@ -401,8 +401,8 @@ class TrajoptPlanner(object):
 		Returns:
 			traj [Trajectory] -- The optimal trajectory satisfying the arguments.
 		"""
-		# waypts = self.trajOpt(start, goal, goal_pose, traj_seed=seed)
-		waypts = self.trajOpt2(start, goal, goal_pose, traj_seed=seed)
+		waypts = self.trajOpt(start, goal, goal_pose, traj_seed=seed)
+		# waypts = self.trajOpt2(start, goal, goal_pose, traj_seed=seed)
 		waypts_time = np.linspace(0.0, T, self.num_waypts)
 		traj = Trajectory(waypts, waypts_time)
 		return traj.upsample(int(T/timestep) + 1)

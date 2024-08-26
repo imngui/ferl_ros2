@@ -20,6 +20,7 @@ from scipy.spatial.transform import Rotation as R
 
 from ferl.controllers.pid_controller import PIDController
 from ferl.planners.trajopt_planner import TrajoptPlanner
+from ferl.learners.phri_learner import PHRILearner
 from ferl.utils import ros2_utils, openrave_utils
 from ferl.utils.environment import Environment
 from ferl.utils.trajectory import Trajectory
@@ -123,8 +124,8 @@ class TestVel(Node):
         self.start = np.array(pick)*(math.pi/180.0)
         place = self.get_parameter('setup.goal').value
         self.goal = np.array(place)*(math.pi/180.0)
-        self.get_logger().info(f'start: {np.array2string(self.start)}')
-        self.get_logger().info(f'goal: {np.array2string(self.goal)}')
+        # self.get_logger().info(f'start: {np.array2string(self.start)}')
+        # self.get_logger().info(f'goal: {np.array2string(self.goal)}')
 
         self.goal_pose = self.get_parameter('setup.goal_pose').value
         self.T = self.get_parameter('setup.T').value
@@ -140,11 +141,11 @@ class TestVel(Node):
         # Openrave parameters for the environment.
         model_filename = self.get_parameter('setup.model_filename').value
         object_centers = get_parameter_as_dict(self.get_parameter('setup.object_centers').value)
-        print("object_centers: ", object_centers)
+        # print("object_centers: ", object_centers)
         feat_list = self.get_parameter('setup.feat_list').value
         weights = self.get_parameter('setup.feat_weights').value
         FEAT_RANGE = get_parameter_as_dict(self.get_parameter('setup.FEAT_RANGE').value)
-        print("FEAT_RANGE: ", FEAT_RANGE)
+        # print("FEAT_RANGE: ", FEAT_RANGE)
         feat_range = [FEAT_RANGE[feat_list[feat]] for feat in range(len(feat_list))]
         LF_dict = get_parameter_as_dict(self.get_parameter('setup.LF_dict').value)
         self.environment = Environment(model_filename, self.start, object_centers, feat_list, feat_range, np.array(weights), LF_dict)
@@ -196,10 +197,10 @@ class TestVel(Node):
         else:
             raise Exception('Planner {} not implemented.'.format(planner_type))
 
-        print("Planning trajectory...")
-        print("Start: ", self.start)
-        print("Goal: ", self.goal)
-        print("Goal Pose: ", self.goal_pose)
+        # print("Planning trajectory...")
+        # print("Start: ", self.start)
+        # print("Goal: ", self.goal)
+        # print("Goal Pose: ", self.goal_pose)
         tt = time.time()
         self.traj = self.planner.replan(self.start, self.goal, self.goal_pose, self.T, self.timestep)
         self.get_logger().info(f"Planning time: {time.time() - tt}")
@@ -231,7 +232,14 @@ class TestVel(Node):
 
         self.cmd = np.eye(self.num_dofs)
 
-        # Subscribe to the force-torque sensor data
+        # ----- Learner Setup ----- #
+        constants = {}
+        constants["step_size"] = self.get_parameter("learner.step_size").value
+        constants["P_beta"] = self.get_parameter("learner.P_beta").value
+        constants["alpha"] = self.get_parameter("learner.alpha").value
+        constants["n"] = self.get_parameter("learner.n").value
+        self.feat_method = self.get_parameter("learner.type").value
+        self.learner = PHRILearner(self.feat_method, self.environment, constants)
 
         # Compliance parameters
         self.Kp = 1.0  # Stiffness (inverse of compliance)
@@ -254,25 +262,20 @@ class TestVel(Node):
         self.can_move = True
 
         # Create a client for the ServoCommandType service
-        # self.switch_input_client = self.create_client(ServoCommandType, '/servo_node/switch_command_type')
-        # # Call the service to enable TWIST command type
-        # self.enable_twist_command()
+        self.switch_input_client = self.create_client(ServoCommandType, '/servo_node/switch_command_type')
+        # Call the service to enable TWIST command type
+        self.enable_twist_command()
 
     def new_plan_callback(self):
         # Update openrave model
-        start = self.curr_pos
-        self.environment.env.GetRobots()[0].SetActiveDOFValues(start)
-        self.traj = self.planner.replan(start.squeeze(), self.goal, self.goal_pose, self.T, self.timestep)
-        self.controller.set_trajectory(self.traj)
+        # start = self.curr_pos
+        # self.environment.env.GetRobots()[0].SetActiveDOFValues(start)
+        # self.traj = self.planner.replan(start.squeeze(), self.goal, self.goal_pose, self.T, self.timestep)
+        # self.controller.set_trajectory(self.traj)
 
         # self.begin_motion_timer = self.create_timer(1.0, self.begin_motion_callback)
         self.can_move = True
         self.new_plan_timer = None
-
-
-    def begin_motion_callback(self):
-        self.begin_motion_callback = None
-        self.can_move = True
 
 
     def enable_twist_command(self):
@@ -313,15 +316,120 @@ class TestVel(Node):
                 force = self.nullify_small_magnitudes(force, 3.0)
                 torque = self.nullify_small_magnitudes(torque, 3.0)
 
-                self.prev_interaction_mode = self.interaction_mode
-                if math.sqrt(force.x ** 2 + force.y ** 2 + force.z ** 2) < 3.0:
-                    self.interaction_mode = False
-                    if self.new_plan_timer is None and self.prev_interaction_mode != self.interaction_mode:
+                interaction = False
+                if math.sqrt(force.x ** 2 + force.y ** 2 + force.z ** 2) >= 3.0 and self.reached_start:
+                    interaction = True
+
+
+                # self.prev_interaction_mode = self.interaction_mode
+                # if math.sqrt(force.x ** 2 + force.y ** 2 + force.z ** 2) < 3.0:
+                #     self.interaction_mode = False
+                #     if self.new_plan_timer is None and self.prev_interaction_mode != self.interaction_mode:
+                #         self.new_plan_timer = self.create_timer(1.0, self.new_plan_callback)
+                #     return
+
+                # TODO fix logic
+                if interaction:
+                    if self.reached_start and not self.reached_goal:
+                        timestamp = time.time() - self.controller.path_start_T
+                        self.interaction_data.append(np.concatenate((force,torque), axis=0))
+                        self.interaction_time.append(timestamp)
+                        if self.interaction_mode == False:
+                            self.interaction_mode = True
+                            self.can_move = False
+                            self.cmd = np.zeros((self.num_dofs, self.num_dofs))
+
+                else:
+                    if self.interaction_mode:
+                        # Check if betas are above CONFIDENCE_THRESHOLD.
+                        betas = self.learner.learn_betas(self.traj, self.interaction_data[0], self.interaction_time[0])
+                        if max(betas) < self.CONFIDENCE_THRESHOLD:
+                            # We must learn a new feature that passes CONFIDENCE_THRESHOLD before resuming.
+                            print("The robot does not understand the input!")
+                            self.feature_learning_mode = True
+                            feature_learning_timestamp = time.time()
+                            input_size = len(self.environment.raw_features(torque_curr))
+                            self.environment.new_learned_feature(self.nb_layers, self.nb_units)
+                            while True:
+                                # Keep asking for input until we are confident.
+                                for i in range(self.N_QUERIES):
+                                    print("Need more data to learn the feature!")
+                                    self.feature_data = []
+
+                                    # Request the person to place the robot in a low feature value state.
+                                    print("Place the robot in a low feature value state and press ENTER when ready.")
+                                    line = sys.stdin.readline()
+                                    self.track_data = True
+
+                                    print("Place the robot in a high feature value state and press ENTER when ready.")
+                                    line = sys.stdin.readline()
+                                    self.track_data = False
+
+                                    # Pre-process the recorded data before training.
+                                    feature_data = np.squeeze(np.array(self.feature_data))
+                                    lo = 0
+                                    hi = feature_data.shape[0] - 1
+                                    while np.linalg.norm(feature_data[lo] - feature_data[lo + 1]) < 0.01 and lo < hi:
+                                        lo += 1
+                                    while np.linalg.norm(feature_data[hi] - feature_data[hi - 1]) < 0.01 and hi > 0:
+                                        hi -= 1
+                                    feature_data = feature_data[lo:hi + 1, :]
+                                    print("Collected {} samples out of {}.".format(feature_data.shape[0], len(self.feature_data)))
+
+                                    # Provide optional start and end labels.
+                                    start_label = 0.0
+                                    end_label = 1.0
+                                    print("Would you like to label your start? Press ENTER if not or enter a number from 0-10")
+                                    line = sys.stdin.readline()
+                                    if line in [str(i) for i in range(11)]:
+                                        start_label = int(i) / 10.0
+
+                                    print("Would you like to label your goal? Press ENTER if not or enter a number from 0-10")
+                                    line = sys.stdin.readline()
+                                    if line in [str(i) for i in range(11)]:
+                                        end_label = int(i) / 10.0
+
+                                    # Add the newly collected data.
+                                    self.environment.learned_features[-1].add_data(feature_data, start_label, end_label)
+                                
+                                # Train new feature with data of increasing "goodness".
+                                self.environment.learned_features[-1].train()
+
+                                # Check if we are happy with the input.
+                                print("Are you happy with the training? (y/n)")
+                                line = sys.stdin.readline()
+                                if line == "yes" or line == "Y" or line == "y":
+                                    break
+                            
+                            # Compute new beta for the new feature.
+                            beta_new = self.learner.learn_betas(self.traj, torque_curr, timestamp, [self.environment.num_features - 1])[0]
+                            betas.append(beta_new)
+
+                            # Move time forward to return to interaction position.
+                            self.controller.path_start_T += (time.time() - feature_learning_timestamp)
+
+                        # We do no have misspecification now, so resume reward learning.
+                        self.feature_learning_mode = False
+                        
+                        # learn reward.
+                        for i in range(len(self.interaction_data)):
+                            self.learner.learn_weights(self.traj, self.interaction_data[i], self.interaction_time[i], betas)
+                        self.traj = self.planner.replan(self.start, self.goal, self.goal_pose, self.T, self.timestep, seed=self.traj_plan.waypts)
+                        self.traj_plan = self.traj.downsample(self.planner.num_waypts)
+                        self.controller.set_trajectory(self.traj)
+
+                        # Turn off interaction mode.
+                        self.interaction_mode = False
+                        self.interaction_data = []
+                        self.interaction_time = []
                         self.new_plan_timer = self.create_timer(1.0, self.new_plan_callback)
-                    return
-                self.interaction_mode = True
-                self.can_move = False
-                self.cmd = np.zeros((self.num_dofs, self.num_dofs))
+
+
+
+
+                # self.interaction_mode = True
+                # self.can_move = False
+                # self.cmd = np.zeros((self.num_dofs, self.num_dofs))
 
                 # Compute the twist in base_link frame
                 twist = TwistStamped()
@@ -377,6 +485,7 @@ class TestVel(Node):
         self.vel_trajectory_pub = self.create_publisher(JointTrajectory, '/scaled_vel_joint_trajectory_controller/joint_trajectory', 10)
         self.vel_pub = self.create_publisher(Float64MultiArray, '/forward_velocity_controller/commands', 10)
         self.joint_angles_sub = self.create_subscription(JointState, '/joint_states', self.joint_angles_callback, 10)
+        # Subscribe to the force-torque sensor data
         self.force_torque_subscription = self.create_subscription(
             WrenchStamped,
             '/force_torque_sensor_broadcaster/wrench',
@@ -399,31 +508,9 @@ class TestVel(Node):
         if self.initial_joint_positions is None:
             self.initial_joint_positions = np.roll(np.array(msg.position),1)
             self.joint_positions = self.initial_joint_positions
-            # self.start = np.array(self.initial_joint_positions)
-            # self.goal = np.array(self.initial_joint_positions)
-            # self.goal[0] += 1.57
-            # self.goal[2] += 1.57
-            # self.get_logger().info(f'names: {np.array2string(self.joint_names)}')
-            # self.get_logger().info(f'start: {np.array2string(self.start)}')
-            # # self.get_logger().info(f'goal: {np.array2string(self.goal)}')
-            # # traj_msg = Float64MultiArray()
-            # # joint_vel = [0.1, 0.0, 0.0, 0.0, 0.0, 0.0]
-            # # traj_msg.data = joint_vel
-            # # self.vel_pub.publish(traj_msg)
-            # # assert(1 == 2)
-            # # waypt_time = np.linspace(0.0, self.T, self.num_waypts)
-            # waypt_time = [0.0, self.T]
-            # self.traj = Trajectory([self.start, self.goal], waypt_time)
-            # self.traj = self.traj.upsample(int(self.T/self.timestep)+1)
-            # self.traj_plan = self.traj.downsample(self.num_waypts)
-            # # for point in self.traj.waypts:
-            # #     pt_str = np.array2string(point.reshape((1,-1)))
-            # #     self.get_logger().info(f'p: {pt_str}')
-            # # assert(1 == 2)
-            # self.controller.set_trajectory(self.traj)
 
         curr_pos = np.roll(np.array(msg.position),1).reshape(self.num_dofs,1)
-        curr_pos_str = np.array2string(curr_pos)
+        # curr_pos_str = np.array2string(curr_pos)
         # self.get_logger().info(f"curr_pos: {curr_pos_str}")
 
         # Convert to radians.
@@ -448,7 +535,7 @@ class TestVel(Node):
         if self.initial_joint_positions is None:
             return
 
-        if not self.interaction_mode and self.can_move:
+        if not self.interaction_mode and self.can_move and not self.feature_learning_mode:
             joint_vel = np.array([self.cmd[i][i] for i in range(len(self.joint_names))]) 
             # self.get_logger().info(f'joint_vel: {np.array2string(joint_vel)}')
 
