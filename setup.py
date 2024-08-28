@@ -15,7 +15,8 @@ setup(
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
         (os.path.join('share', package_name, 'launch'), glob(os.path.join('launch', '*launch.[pxy][yma]*'))),
-        (os.path.join('share', package_name, 'data'), glob('data/objects/*.xml'))
+        (os.path.join('share', package_name, 'data'), glob('data/objects/*.xml')),
+        (os.path.join('share', package_name, 'data', 'demonstrations', 'demos'), glob('data/demonstrations/demos/*')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -28,6 +29,8 @@ setup(
         'console_scripts': [
             'feature_elicitator = ferl.feature_elicitator:main',
             'test_vel = ferl.test_vel:main',
+            'demo_recorder = ferl.demo_recorder:main',
+            'user_input_node = ferl.user_input_node:main',
         ],
     },
 )

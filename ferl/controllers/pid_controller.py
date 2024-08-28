@@ -81,6 +81,7 @@ class PIDController(object):
 
 		# First update the target position if needed.
 		# Check if the arm is at the start of the path to execute.
+		# logger.info(f'pid: {self.path_start_T}')
 		if self.path_start_T is None:
 			dist_from_start = current_pos - self.traj.waypts[0].reshape((self.num_dofs,1))
 			dist_from_start = np.fabs(dist_from_start)

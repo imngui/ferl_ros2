@@ -3,7 +3,7 @@ import time
 import os
 import pickle
 
-from utils.openrave_utils import *
+from ferl.utils.openrave_utils import *
 
 class ExperimentUtils(object):
 

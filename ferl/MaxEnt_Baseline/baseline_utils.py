@@ -32,6 +32,17 @@ def map_to_raw_dim(env, expert_demos):
 
 	return out_demos
 
+def map_traj_to_raw_dim(env, expert_demo):
+	out_demo = []
+	raw_feature_traj = []
+	temp_traj = expert_demo.copy()
+	for i in range(temp_traj.shape[0]):
+		out = env.raw_features(temp_traj[i])
+		raw_feature_traj.append(out)
+	out_demo.append(np.array(raw_feature_traj))
+
+	return out_demo
+
 
 def generate_cost_perturb_trajs(planner, env, std, n_traj, start, goal, goal_pose, T, timestep):
 	"""

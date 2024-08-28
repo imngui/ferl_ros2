@@ -9,26 +9,30 @@ import sys, select, os
 import time
 import torch
 
+import rclpy.wait_for_message
 from std_msgs.msg import String, Float64MultiArray
 from sensor_msgs.msg import JointState
+from std_srvs.srv import Trigger
 
 from moveit_msgs.srv import ServoCommandType
 from geometry_msgs.msg import WrenchStamped, TwistStamped, Vector3
+from controller_manager_msgs.srv import SwitchController
+
 from tf2_ros import Buffer, TransformListener, LookupException, ConnectivityException, ExtrapolationException
 from scipy.spatial.transform import Rotation as R
 
 from ferl.controllers.pid_controller import PIDController
 from ferl.planners.trajopt_planner import TrajoptPlanner
 from ferl.learners.phri_learner import PHRILearner
-from ferl.utils import ros2_utils, openrave_utils
+from ferl.utils import ros2_utils, openrave_utils, experiment_utils
 from ferl.utils.environment import Environment
 from ferl.utils.trajectory import Trajectory
-from ferl.MaxEnt_Baseline.baseline_utils import map_to_raw_dim
+from ferl.MaxEnt_Baseline.baseline_utils import map_traj_to_raw_dim
 
-import ast
 import numpy as np
 import threading
 import pickle
+import ast
 
 def convert_string_array_to_dict(string_array):
     feat_range_dict = {}
@@ -70,9 +74,9 @@ def convert_string_to_appropriate_type(value_str):
         return value_str
 
 
-class TestVel(Node):
+class DemoRecorder(Node):
     def __init__(self):
-        super().__init__('test_vel_node')
+        super().__init__('demo_recorder_node')
 
         self.load_params()
         self.register_callbacks()
@@ -169,24 +173,26 @@ class TestVel(Node):
         self.interaction_time = []
         self.feature_data = []
         self.track_data = False
+        self.expUtil = None
+        self.prev_interaction = False
 
         # ----- Planner Setup ----- #
         # Retrieve the planner specific parameters.
-        planner_type = self.get_parameter('planner.type').value
-        if planner_type == "trajopt":
-            max_iter = self.get_parameter('planner.max_iter').value
-            num_waypts = self.get_parameter('planner.num_waypts').value
+        # planner_type = self.get_parameter('planner.type').value
+        # if planner_type == "trajopt":
+        #     max_iter = self.get_parameter('planner.max_iter').value
+        #     num_waypts = self.get_parameter('planner.num_waypts').value
 
-            # Initialize planner and compute trajectory to track.
-            self.planner = TrajoptPlanner(max_iter, num_waypts, self.environment)
-            # TODO: Implement TrajoptPlanner class.
-        else:
-            raise Exception('Planner {} not implemented.'.format(planner_type))
+        #     # Initialize planner and compute trajectory to track.
+        #     self.planner = TrajoptPlanner(max_iter, num_waypts, self.environment)
+        #     # TODO: Implement TrajoptPlanner class.
+        # else:
+        #     raise Exception('Planner {} not implemented.'.format(planner_type))
 
-        tt = time.time()
-        self.traj = self.planner.replan(self.start, self.goal, self.goal_pose, self.T, self.timestep)
-        self.get_logger().info(f"Planning time: {time.time() - tt}")
-        self.traj_plan = self.traj.downsample(self.planner.num_waypts)
+        # tt = time.time()
+        # self.traj = self.planner.replan(self.start, self.goal, self.goal_pose, self.T, self.timestep)
+        # self.get_logger().info(f"Planning time: {time.time() - tt}")
+        # self.traj_plan = self.traj.downsample(self.planner.num_waypts)
 
         # ----- Controller Setup ----- #
         # Retrieve controller specific parameters.
@@ -210,9 +216,13 @@ class TestVel(Node):
             raise Exception('Controller {} not implemented.'.format(controller_type))
 
         # Planner tells controller what plan to follow.
-        self.controller.set_trajectory(self.traj)
+        self.controller.set_trajectory(Trajectory([self.start], [0.0]))
 
+        
         self.cmd = np.eye(self.num_dofs)
+
+        # Utilities for recording data.
+        self.expUtil = experiment_utils.ExperimentUtils(self.save_dir)
 
         # ----- Learner Setup ----- #
         constants = {}
@@ -224,7 +234,7 @@ class TestVel(Node):
         self.learner = PHRILearner(self.feat_method, self.environment, constants)
 
         # Compliance parameters
-        self.Kp = 1.0  # Stiffness (inverse of compliance)
+        self.Kp = 3.0  # Stiffness (inverse of compliance)
         self.Kd = 0.1  # Damping
 
         self.current_twist = TwistStamped()  # Keep track of the current twist for damping effect
@@ -240,15 +250,51 @@ class TestVel(Node):
         self.new_plan_timer = None # self.create_timer(0.2, self.new_plan_callback)
         self.begin_motion_timer = None
         self.can_move = True
+        self.interaction = False
 
         # Create a client for the ServoCommandType service
         self.switch_input_client = self.create_client(ServoCommandType, '/servo_node/switch_command_type')
         # Call the service to enable TWIST command type
         self.enable_twist_command()
 
+        self.zero_ft_client = self.create_client(Trigger, '/io_and_status_controller/zero_ftsensor')
+        self.zero_ft_sensor()
+
+        self.switch_controller_client = self.create_client(SwitchController, '/controller_manager/switch_controller')
+        self.deactivate_controller('scaled_joint_trajectory_controller')
+        self.activate_controller('forward_velocity_controller')
+
+        self.user_input = None
+
+
+    def register_callbacks(self):
+        """
+        Set up all the subscribers and publishers needed.
+        """
+        self.traj_timer = self.create_timer(0.1, self.publish_trajectory)
+        self.vel_pub = self.create_publisher(Float64MultiArray, '/forward_velocity_controller/commands', 10)
+        self.joint_angles_sub = self.create_subscription(JointState, '/joint_states', self.joint_angles_callback, 10)
+        self.force_torque_subscription = self.create_subscription(
+            WrenchStamped,
+            '/force_torque_sensor_broadcaster/wrench',
+            self.wrench_callback,
+            10)
+        self.twist_pub_ = self.create_publisher(TwistStamped, '/servo_node/delta_twist_cmds', 10)
+
+        self.user_input_sub = self.create_subscription(String, '/user_input', self.user_input_callback, 10)
+        self.req_user_input_pub = self.create_publisher(String, '/req_user_input', 10)
+
+        # Create a client for the ServoCommandType service
+        self.switch_input_client = self.create_client(ServoCommandType, '/servo_node/switch_command_type')
+        self.enable_twist_command()
+
+
     def new_plan_callback(self):
-        self.can_move = True
-        self.new_plan_timer = None
+        if not self.interaction:
+            # self.zero_ft_sensor()
+            self.can_move = True
+            self.finalize_demo_trajectory()
+            self.new_plan_timer = None
 
 
     def enable_twist_command(self):
@@ -266,6 +312,55 @@ class TestVel(Node):
             self.get_logger().info('Switched to input type: TWIST')
         else:
             self.get_logger().warn('Could not switch input to: TWIST')
+
+
+    def activate_controller(self, controller_name):
+        if not self.switch_controller_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warn('Switch control sensor service not available, waiting again...')
+            return
+         
+        request = SwitchController.Request()
+        request.activate_controllers = [controller_name]
+
+        future = self.switch_controller_client.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+
+        if future.result() is not None and future.result().ok:
+            self.get_logger().info(f'Activated controller: {controller_name}')
+        else:
+            self.get_logger().warn(f'Could not activate controller: {controller_name}')
+
+
+    def deactivate_controller(self, controller_name):
+        if not self.switch_controller_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warn('Switch control service not available, waiting again...')
+            return
+        
+        request = SwitchController.Request()
+        request.deactivate_controllers = [controller_name]
+
+        future = self.switch_controller_client.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+
+        if future.result() is not None and future.result().ok:
+            self.get_logger().info(f'Deactivated controller: {controller_name}')
+        else:
+            self.get_logger().warn(f'Could not deactivate controller: {controller_name}')
+
+
+    def zero_ft_sensor(self):
+        if not self.zero_ft_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warn('Zero ft sensor service not available, waiting again...')
+            return
+        
+        request = Trigger.Request()
+        future = self.zero_ft_client.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+
+        if future.result() is not None and future.result().success:
+            self.get_logger().info('Zero ft sensor complete!')
+        else:
+            self.get_logger().warn("Could not zero ft sensor!")
 
 
     def wrench_callback(self, msg):
@@ -286,12 +381,15 @@ class TestVel(Node):
                 force = self.nullify_small_magnitudes(force, 3.0)
                 torque = self.nullify_small_magnitudes(torque, 3.0)
 
+                self.prev_interaction = self.interaction
+
                 if math.sqrt(force.x ** 2 + force.y ** 2 + force.z ** 2) < 3.0:
-                    interaction = False
-                    self.can_move = True
+                    self.interaction = False
+                    if self.prev_interaction != self.interaction:
+                        self.new_plan_timer = self.create_timer(1.0, self.new_plan_callback)
                     return
 
-                interaction = True
+                self.interaction = True
                 self.can_move = False
                 self.cmd = np.zeros((self.num_dofs, self.num_dofs))
 
@@ -343,25 +441,6 @@ class TestVel(Node):
             return vector
 
 
-    def register_callbacks(self):
-        """
-        Set up all the subscribers and publishers needed.
-        """
-        self.traj_timer = self.create_timer(0.1, self.publish_trajectory)
-        self.vel_pub = self.create_publisher(Float64MultiArray, '/forward_velocity_controller/commands', 10)
-        self.joint_angles_sub = self.create_subscription(JointState, '/joint_states', self.joint_angles_callback, 10)
-        self.force_torque_subscription = self.create_subscription(
-            WrenchStamped,
-            '/force_torque_sensor_broadcaster/wrench',
-            self.wrench_callback,
-            10)
-        self.twist_pub_ = self.create_publisher(TwistStamped, '/servo_node/delta_twist_cmds', 10)
-
-        # Create a client for the ServoCommandType service
-        self.switch_input_client = self.create_client(ServoCommandType, '/servo_node/switch_command_type')
-        self.enable_twist_command()
-
-
     def joint_angles_callback(self, msg):
         """
         Reads the latest position of the robot and publishes an
@@ -392,7 +471,7 @@ class TestVel(Node):
         if self.initial_joint_positions is None:
             return
 
-        if self.can_move:
+        if self.can_move and not self.interaction:
             joint_vel = np.array([self.cmd[i][i] for i in range(len(self.joint_names))])
 
             # Float64MultiArray
@@ -400,17 +479,33 @@ class TestVel(Node):
             traj_msg.data = joint_vel
             self.vel_pub.publish(traj_msg)
 
+    def get_user_input(self):
+        cnt = 0
+        while rclpy.ok():
+            if self.ready_for_input and cnt < 1:
+                self.get_logger().info("Ready for input")
+                cnt += 1
+            self.user_input = input()
+
+    def user_input_callback(self, msg):
+        self.user_input = msg.data
+
 
     def finalize_demo_trajectory(self):
+        self.get_logger().info("Final")
+
         # Process and save the recording.
         raw_demo = self.expUtil.tracked_traj[:,1:7]
+
+        # self.get_logger().info(f'raw_demo: {raw_demo.shape}')
 
         # Trim ends of waypoints and create Trajectory.
         lo = 0
         hi = raw_demo.shape[0] - 1
-        while np.linalg.norm(raw_demo[lo] - raw_demo[lo + 1]) < 0.01 and lo < hi:
+        while np.linalg.norm(raw_demo[lo] - raw_demo[lo + 1]) < 0.002 and lo < hi:
+            # self.get_logger().info(f'lo diff {lo}: {np.linalg.norm(raw_demo[lo] - raw_demo[lo + 1])}')
             lo += 1
-        while np.linalg.norm(raw_demo[hi] - raw_demo[hi - 1]) < 0.01 and hi > 0:
+        while np.linalg.norm(raw_demo[hi] - raw_demo[hi - 1]) < 0.002 and hi > 0:
             hi -= 1
         waypts = raw_demo[lo:hi+1, :]
         waypts_time = np.linspace(0.0, self.T, waypts.shape[0])
@@ -427,40 +522,62 @@ class TestVel(Node):
         openrave_utils.plotTraj(self.environment.env, self.environment.robot,
         				self.environment.bodies, demo.waypts, color=[0, 0, 1])
 
-        demo_feat_trace = map_to_raw_dim(self.environment, traj)
+        demo_feat_trace = map_traj_to_raw_dim(self.environment, traj.waypts)
         # demo_feat_trace = []
         # for waypt in traj.waypts:
         #     demo_feat_trace.append(map_to_raw_dim(self.enviornment, ))
 
 
-        print("Type [yes/y/Y] if you're happy with the demonstration.")
-        line = input()
+        self.ready_for_input = True
+        self.get_logger().info("Type [yes/y/Y] if you're happy with the demonstration.")
+        user_input_req = String()
+        user_input_req.data = "Type [yes/y/Y] if you're happy with the demonstration."
+        self.req_user_input_pub.publish(user_input_req)
+        # line = input()
+        rec, msg = rclpy.wait_for_message.wait_for_message(String, self, '/user_input')
+        line = msg.data
         if (line is not "yes") and (line is not "Y") and (line is not "y"):
-            print("Not happy with demonstration. Terminating experiment.")
+            self.get_logger().info("Not happy with demonstration. Terminating experiment.")
         else:
-            print("Please type in the ID number (e.g. [0/1/2/...]).")
-            ID = input()
-            print("Please type in the task number (e.g. [0/1/2/...]).")
-            task = input()
-            filename = "demo" + "_ID" + ID + "_task" + task
-            savefile = self.expUtil.get_unique_filepath("demos",filename)
-            pickle.dump(demo, open(savefile, "wb" ))
-            pickle.dump(demo_feat_trace, open("ft_"+savefile, "wb" ))
-            print("Saved demonstration in {}.".format(savefile))
+            self.get_logger().info("Please type in the ID number (e.g. [0/1/2/...]).")
+            user_input_req.data = "Please type in the ID number (e.g. [0/1/2/...])."
+            self.req_user_input_pub.publish(user_input_req)
+            # ID = input()
+            rec, msg = rclpy.wait_for_message.wait_for_message(String, self, '/user_input')
+            ID = msg.data
+            self.get_logger().info("Please type in the task number (e.g. [0/1/2/...]).")
+            user_input_req.data = "Please type in the task number (e.g. [0/1/2/...])."
+            self.req_user_input_pub.publish(user_input_req)
+            rec, msg = rclpy.wait_for_message.wait_for_message(String, self, '/user_input')
+            task = msg.data
+            self.user_input = None
+            filename = "demo" + "_ID" + ID + "_task" + task + ".p"
+            savefile = os.path.join(get_package_share_directory('ferl'), 'data', 'demonstrations', 'demos', filename)
+            ft_filename = "ft_" + filename
+            ft_savefile = os.path.join(get_package_share_directory('ferl'), 'data', 'demonstrations', 'demos', ft_filename)
+            
+            with open(savefile, "wb") as f:
+                pickle.dump(demo, f)
+            with open(ft_savefile, "wb") as f:
+                pickle.dump(demo_feat_trace, f)
+            self.get_logger().info("Saved demonstration in {}.".format(savefile))
+        
+        sys.exit(0)
 
 
 def main(args=None):
     rclpy.init(args=args)
 
-    test_vel_node = TestVel()
+    demo_recorder_node = DemoRecorder()
 
     executor = rclpy.executors.MultiThreadedExecutor()
-    executor.add_node(test_vel_node)
+    executor.add_node(demo_recorder_node)
 
     try:
         executor.spin()
     finally:
-        test_vel_node.destroy_node()
+        # demo_recorder_node.finalize_demo_trajectory()
+        demo_recorder_node.destroy_node()
         rclpy.shutdown()
 
 

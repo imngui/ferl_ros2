@@ -8,6 +8,10 @@ from openravepy import *
 from ferl.utils.openrave_utils import *
 from ferl.utils.learned_feature import LearnedFeature
 
+from rclpy.impl import rcutils_logger
+logger = rcutils_logger.RcutilsLogger(name="env")
+
+
 # TODO ! Figure out EE_Link stuff
 
 class Environment(object):
@@ -15,7 +19,7 @@ class Environment(object):
     This class creates an OpenRave environment and contains all the
     functionality needed for custom features and constraints.
     """
-    def __init__(self, model_filename, start_dofs, object_centers, feat_list, feat_range, feat_weights, LF_dict=None, viewer=True):
+    def __init__(self, model_filename, start_dofs, object_centers, feat_list=None, feat_range=None, feat_weights=None, LF_dict=None, viewer=True):
         # ---- Create environment ---- #
         self.env, self.robot = initialize(model_filename, start_dofs, viewer=viewer)
         self.num_dofs = self.robot.GetActiveDOF()
@@ -139,6 +143,8 @@ class Environment(object):
             # self.robot.SetDOFValues(waypt_openrave)
             coords = np.array(robotToCartesian(self.robot))
             orientations = np.array(robotToOrientation(self.robot))
+            temp = np.reshape(np.concatenate((waypt.squeeze(), orientations.flatten(), coords.flatten(), object_coords.flatten())), (-1,))
+            logger.info(f'raw len: {temp.shape}')
             return np.reshape(np.concatenate((waypt.squeeze(), orientations.flatten(), coords.flatten(), object_coords.flatten())), (-1,))
 
     def get_torch_transforms(self, waypt):

@@ -132,7 +132,7 @@ class Trajectory(object):
 			return Trajectory(waypts_deform, self.waypts_time)
 
 		for joint in range(self.num_dofs):
-			gamma[:,joint] = alpha*np.dot(H, u_h[joint])
+			gamma[:,joint] = (alpha*np.dot(H, u_h[joint])).squeeze()
 		waypts_deform[deform_waypt_idx : n + deform_waypt_idx, :] += gamma
 		return Trajectory(waypts_deform, self.waypts_time)
 
