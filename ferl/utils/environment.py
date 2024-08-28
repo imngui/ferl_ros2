@@ -144,7 +144,7 @@ class Environment(object):
             coords = np.array(robotToCartesian(self.robot))
             orientations = np.array(robotToOrientation(self.robot))
             temp = np.reshape(np.concatenate((waypt.squeeze(), orientations.flatten(), coords.flatten(), object_coords.flatten())), (-1,))
-            logger.info(f'raw len: {temp.shape}')
+            # logger.info(f'raw len: {temp.shape}')
             return np.reshape(np.concatenate((waypt.squeeze(), orientations.flatten(), coords.flatten(), object_coords.flatten())), (-1,))
 
     def get_torch_transforms(self, waypt):

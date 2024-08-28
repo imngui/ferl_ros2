@@ -253,14 +253,18 @@ class DemoRecorder(Node):
         self.interaction = False
         self.initial_wrench = None
         self.interaction_start = None
+        self.prev_pos = None
+        self.same_pos_count = 0
+        self.last_pos = None
+        self.data_timer = None
 
         # Create a client for the ServoCommandType service
         # self.switch_input_client = self.create_client(ServoCommandType, '/servo_node/switch_command_type')
         # Call the service to enable TWIST command type
         # self.enable_twist_command()
 
-        self.zero_ft_client = self.create_client(Trigger, '/io_and_status_controller/zero_ftsensor')
-        self.zero_ft_sensor()
+        # self.zero_ft_client = self.create_client(Trigger, '/io_and_status_controller/zero_ftsensor')
+        # self.zero_ft_sensor()
 
         # self.switch_controller_client = self.create_client(SwitchController, '/controller_manager/switch_controller')
         # self.deactivate_controller('scaled_joint_trajectory_controller')
@@ -297,88 +301,83 @@ class DemoRecorder(Node):
         # self.enable_twist_command()
 
 
-    def new_plan_callback(self):
-        if not self.interaction:
-            # self.zero_ft_sensor()
-            # self.can_move = True
-            self.finalize_demo_trajectory()
+    # def new_plan_callback(self):
+    #     if not self.interaction:
+    #         # self.zero_ft_sensor()
+    #         # self.can_move = True
+    #         self.finalize_demo_trajectory()
 
-            self.new_plan_timer = None
-
-
-    def enable_twist_command(self):
-        if not self.switch_input_client.wait_for_service(timeout_sec=1.0):
-            self.get_logger().warn('Service not available, waiting again...')
-            return
-
-        request = ServoCommandType.Request()
-        request.command_type = ServoCommandType.Request.TWIST
-
-        future = self.switch_input_client.call_async(request)
-        rclpy.spin_until_future_complete(self, future)
-
-        if future.result() is not None and future.result().success:
-            self.get_logger().info('Switched to input type: TWIST')
-        else:
-            self.get_logger().warn('Could not switch input to: TWIST')
+    #         self.new_plan_timer = None
 
 
-    def activate_controller(self, controller_name):
-        if not self.switch_controller_client.wait_for_service(timeout_sec=1.0):
-            self.get_logger().warn('Switch control sensor service not available, waiting again...')
-            return
+    # def enable_twist_command(self):
+    #     if not self.switch_input_client.wait_for_service(timeout_sec=1.0):
+    #         self.get_logger().warn('Service not available, waiting again...')
+    #         return
+
+    #     request = ServoCommandType.Request()
+    #     request.command_type = ServoCommandType.Request.TWIST
+
+    #     future = self.switch_input_client.call_async(request)
+    #     rclpy.spin_until_future_complete(self, future)
+
+    #     if future.result() is not None and future.result().success:
+    #         self.get_logger().info('Switched to input type: TWIST')
+    #     else:
+    #         self.get_logger().warn('Could not switch input to: TWIST')
+
+
+    # def activate_controller(self, controller_name):
+    #     if not self.switch_controller_client.wait_for_service(timeout_sec=1.0):
+    #         self.get_logger().warn('Switch control sensor service not available, waiting again...')
+    #         return
          
-        request = SwitchController.Request()
-        request.activate_controllers = [controller_name]
+    #     request = SwitchController.Request()
+    #     request.activate_controllers = [controller_name]
 
-        future = self.switch_controller_client.call_async(request)
-        rclpy.spin_until_future_complete(self, future)
+    #     future = self.switch_controller_client.call_async(request)
+    #     rclpy.spin_until_future_complete(self, future)
 
-        if future.result() is not None and future.result().ok:
-            self.get_logger().info(f'Activated controller: {controller_name}')
-        else:
-            self.get_logger().warn(f'Could not activate controller: {controller_name}')
+    #     if future.result() is not None and future.result().ok:
+    #         self.get_logger().info(f'Activated controller: {controller_name}')
+    #     else:
+    #         self.get_logger().warn(f'Could not activate controller: {controller_name}')
 
 
-    def deactivate_controller(self, controller_name):
-        if not self.switch_controller_client.wait_for_service(timeout_sec=1.0):
-            self.get_logger().warn('Switch control service not available, waiting again...')
-            return
+    # def deactivate_controller(self, controller_name):
+    #     if not self.switch_controller_client.wait_for_service(timeout_sec=1.0):
+    #         self.get_logger().warn('Switch control service not available, waiting again...')
+    #         return
         
-        request = SwitchController.Request()
-        request.deactivate_controllers = [controller_name]
+    #     request = SwitchController.Request()
+    #     request.deactivate_controllers = [controller_name]
 
-        future = self.switch_controller_client.call_async(request)
-        rclpy.spin_until_future_complete(self, future)
+    #     future = self.switch_controller_client.call_async(request)
+    #     rclpy.spin_until_future_complete(self, future)
 
-        if future.result() is not None and future.result().ok:
-            self.get_logger().info(f'Deactivated controller: {controller_name}')
-        else:
-            self.get_logger().warn(f'Could not deactivate controller: {controller_name}')
+    #     if future.result() is not None and future.result().ok:
+    #         self.get_logger().info(f'Deactivated controller: {controller_name}')
+    #     else:
+    #         self.get_logger().warn(f'Could not deactivate controller: {controller_name}')
 
 
-    def zero_ft_sensor(self):
-        if not self.zero_ft_client.wait_for_service(timeout_sec=1.0):
-            self.get_logger().warn('Zero ft sensor service not available, waiting again...')
-            return
+    # def zero_ft_sensor(self):
+    #     if not self.zero_ft_client.wait_for_service(timeout_sec=1.0):
+    #         self.get_logger().warn('Zero ft sensor service not available, waiting again...')
+    #         return
         
-        request = Trigger.Request()
-        future = self.zero_ft_client.call_async(request)
-        rclpy.spin_until_future_complete(self, future)
+    #     request = Trigger.Request()
+    #     future = self.zero_ft_client.call_async(request)
+    #     rclpy.spin_until_future_complete(self, future)
 
-        if future.result() is not None and future.result().success:
-            self.get_logger().info('Zero ft sensor complete!')
-        else:
-            self.get_logger().warn("Could not zero ft sensor!")
+    #     if future.result() is not None and future.result().success:
+    #         self.get_logger().info('Zero ft sensor complete!')
+    #     else:
+    #         self.get_logger().warn("Could not zero ft sensor!")
 
 
     def wrench_callback(self, msg):
-        if self.initial_wrench is None:
-            self.initial_wrench = msg
         self.latest_wrench = msg
-
-    def sub_init(self, curr_wrench, init_wrench):
-        return Vector3(x=curr_wrench.x-init_wrench.x, y=curr_wrench.y-init_wrench.y, z=curr_wrench.z-init_wrench.z)
 
 
     def timer_callback(self):
@@ -398,20 +397,21 @@ class DemoRecorder(Node):
                 torque = self.transform_vector(ft_to_tool0, torque)
 
                 # Nullify force/torque readings with magnitude < 3
-                force = self.nullify_small_magnitudes(force, 3.0)
-                torque = self.nullify_small_magnitudes(torque, 3.0)
+                force = self.nullify_small_magnitudes(force, 10.0)
+                torque = self.nullify_small_magnitudes(torque, 10.0)
 
                 self.prev_interaction = self.interaction
 
-                if math.sqrt(force.x ** 2 + force.y ** 2 + force.z ** 2) < 3.0:
-                    self.interaction = False
-                    if self.prev_interaction != self.interaction:
-                        self.new_plan_timer = self.create_timer(1.0, self.new_plan_callback)
+                if math.sqrt(force.x ** 2 + force.y ** 2 + force.z ** 2) < 10.0:
+                    # self.interaction = False
+                    # if self.prev_interaction != self.interaction:
+                        # self.new_plan_timer = self.create_timer(1.0, self.new_plan_callback)
                     return
 
                 self.interaction = True
                 self.can_move = False
-                self.interaction_start = time.time()
+                if self.interaction_start is None:
+                    self.interaction_start = time.time()
 
                 # # Compute the twist in base_link frame
                 # twist = TwistStamped()
@@ -481,20 +481,42 @@ class DemoRecorder(Node):
             self.initialized = True
 
         # When no in feature learning stage, update position.
+        self.prev_pos = self.curr_pos
         self.curr_pos = curr_pos
+
         self.curr_vel = np.roll(np.array(msg.velocity),1).reshape(self.num_dofs,1)
 
         # if self.controller.path_start_T is not None:
-        if self.interaction:
-            self.cmd = np.zeros((self.num_dofs, self.num_dofs))
-
-            timestamp = time.time() - self.interaction_start
-            self.expUtil.update_tracked_traj(timestamp, curr_pos)
-            self.get_logger().info(f'Collected {self.expUtil.tracked_traj.shape}')
+        # if self.interaction:
+        if self.interaction_start is None:
+            return
+        
+        if np.linalg.norm(self.curr_pos - self.prev_pos) < 1e-4:
+            self.same_pos_count += 1
         else:
-            # self.cmd = self.controller.get_command(self.curr_pos, self.curr_vel)
-            self.cmd = np.zeros((self.num_dofs, self.num_dofs))
+            self.same_pos_count = 0
 
+        if self.same_pos_count >= 20:
+            if self.data_timer is None:
+                self.last_pos = self.curr_pos
+                self.data_timer = self.create_timer(1.0, self.data_collected)
+            # self.interaction = False
+            # self.finalize_demo_trajectory()
+        
+        timestamp = time.time() - self.interaction_start
+        self.expUtil.update_tracked_traj(timestamp, curr_pos)
+        self.get_logger().info(f'Collected {self.expUtil.tracked_traj.shape}')
+        # else:
+        #     # self.cmd = self.controller.get_command(self.curr_pos, self.curr_vel)
+        #     self.cmd = np.zeros((self.num_dofs, self.num_dofs))
+
+    def data_collected(self):
+        self.get_logger().info("HERE")
+        if np.linalg.norm(self.curr_pos - self.last_pos) < 1e-2:
+            self.interaction = False
+            self.finalize_demo_trajectory()
+            sys.exit(0)
+        self.data_timer = None
 
     # def publish_trajectory(self):
     #     if self.initial_joint_positions is None:
@@ -515,7 +537,7 @@ class DemoRecorder(Node):
         # Process and save the recording.
         raw_demo = self.expUtil.tracked_traj[:,1:7]
 
-        self.get_logger().info(f'raw_demo: {raw_demo.shape}')
+        # self.get_logger().info(f'raw_demo: {raw_demo.shape}')
 
         # Trim ends of waypoints and create Trajectory.
         lo = 0
@@ -598,6 +620,7 @@ def main(args=None):
         demo_recorder_node.destroy_node()
         rclpy.shutdown()
 
+    print("test: ", test)
 
 if __name__ == '__main__':
     main()
