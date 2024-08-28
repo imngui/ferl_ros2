@@ -215,8 +215,8 @@ class DemoRecorder(Node):
         else:
             raise Exception('Controller {} not implemented.'.format(controller_type))
 
-        # Planner tells controller what plan to follow.
-        self.controller.set_trajectory(Trajectory([self.start], [0.0]))
+        # # Planner tells controller what plan to follow.
+        # self.controller.set_trajectory(Trajectory([self.start], [0.0]))
 
         
         self.cmd = np.eye(self.num_dofs)
@@ -251,27 +251,35 @@ class DemoRecorder(Node):
         self.begin_motion_timer = None
         self.can_move = True
         self.interaction = False
+        self.initial_wrench = None
+        self.interaction_start = None
 
         # Create a client for the ServoCommandType service
-        self.switch_input_client = self.create_client(ServoCommandType, '/servo_node/switch_command_type')
+        # self.switch_input_client = self.create_client(ServoCommandType, '/servo_node/switch_command_type')
         # Call the service to enable TWIST command type
-        self.enable_twist_command()
+        # self.enable_twist_command()
 
         self.zero_ft_client = self.create_client(Trigger, '/io_and_status_controller/zero_ftsensor')
         self.zero_ft_sensor()
 
-        self.switch_controller_client = self.create_client(SwitchController, '/controller_manager/switch_controller')
-        self.deactivate_controller('scaled_joint_trajectory_controller')
-        self.activate_controller('forward_velocity_controller')
+        # self.switch_controller_client = self.create_client(SwitchController, '/controller_manager/switch_controller')
+        # self.deactivate_controller('scaled_joint_trajectory_controller')
+
+        # Forward Velocity Controller
+        # self.activate_controller('forward_velocity_controller')
+
+        # Forward Position Controller
+        # self.activate_controller('forward_position_controller')
 
         self.user_input = None
+        self.initialized = False
 
 
     def register_callbacks(self):
         """
         Set up all the subscribers and publishers needed.
         """
-        self.traj_timer = self.create_timer(0.1, self.publish_trajectory)
+        # self.traj_timer = self.create_timer(0.1, self.publish_trajectory)
         self.vel_pub = self.create_publisher(Float64MultiArray, '/forward_velocity_controller/commands', 10)
         self.joint_angles_sub = self.create_subscription(JointState, '/joint_states', self.joint_angles_callback, 10)
         self.force_torque_subscription = self.create_subscription(
@@ -281,19 +289,20 @@ class DemoRecorder(Node):
             10)
         self.twist_pub_ = self.create_publisher(TwistStamped, '/servo_node/delta_twist_cmds', 10)
 
-        self.user_input_sub = self.create_subscription(String, '/user_input', self.user_input_callback, 10)
+        # self.user_input_sub = self.create_subscription(String, '/user_input', self.user_input_callback, 10)
         self.req_user_input_pub = self.create_publisher(String, '/req_user_input', 10)
 
         # Create a client for the ServoCommandType service
-        self.switch_input_client = self.create_client(ServoCommandType, '/servo_node/switch_command_type')
-        self.enable_twist_command()
+        # self.switch_input_client = self.create_client(ServoCommandType, '/servo_node/switch_command_type')
+        # self.enable_twist_command()
 
 
     def new_plan_callback(self):
         if not self.interaction:
             # self.zero_ft_sensor()
-            self.can_move = True
+            # self.can_move = True
             self.finalize_demo_trajectory()
+
             self.new_plan_timer = None
 
 
@@ -364,18 +373,29 @@ class DemoRecorder(Node):
 
 
     def wrench_callback(self, msg):
+        if self.initial_wrench is None:
+            self.initial_wrench = msg
         self.latest_wrench = msg
+
+    def sub_init(self, curr_wrench, init_wrench):
+        return Vector3(x=curr_wrench.x-init_wrench.x, y=curr_wrench.y-init_wrench.y, z=curr_wrench.z-init_wrench.z)
 
 
     def timer_callback(self):
-        if self.latest_wrench is not None:
+        if self.latest_wrench is not None and self.initialized:
             try:
                 # Look up the transformation from ft_frame to tool0 and then tool0 to base_link
                 ft_to_tool0 = self.tf_buffer.lookup_transform('tool0', self.latest_wrench.header.frame_id, rclpy.time.Time())
 
+                # force = self.sub_init(self.latest_wrench.wrench.force , self.initial_wrench.wrench.force)
+                # torque = self.sub_init(self.latest_wrench.wrench.torque , self.initial_wrench.wrench.torque)
+
+                force = self.latest_wrench.wrench.force 
+                torque = self.latest_wrench.wrench.torque 
+
                 # Transform the force/torque from ft_frame to tool0
-                force = self.transform_vector(ft_to_tool0, self.latest_wrench.wrench.force)
-                torque = self.transform_vector(ft_to_tool0, self.latest_wrench.wrench.torque)
+                force = self.transform_vector(ft_to_tool0, force)
+                torque = self.transform_vector(ft_to_tool0, torque)
 
                 # Nullify force/torque readings with magnitude < 3
                 force = self.nullify_small_magnitudes(force, 3.0)
@@ -391,26 +411,26 @@ class DemoRecorder(Node):
 
                 self.interaction = True
                 self.can_move = False
-                self.cmd = np.zeros((self.num_dofs, self.num_dofs))
+                self.interaction_start = time.time()
 
-                # Compute the twist in base_link frame
-                twist = TwistStamped()
-                twist.header.stamp = self.get_clock().now().to_msg()
-                twist.header.frame_id = 'tool0'
+                # # Compute the twist in base_link frame
+                # twist = TwistStamped()
+                # twist.header.stamp = self.get_clock().now().to_msg()
+                # twist.header.frame_id = 'tool0'
 
-                twist.twist.linear.x = (1 / self.Kp) * force.x - self.Kd * self.current_twist.twist.linear.x
-                twist.twist.linear.y = (1 / self.Kp) * force.y - self.Kd * self.current_twist.twist.linear.y
-                twist.twist.linear.z = (1 / self.Kp) * force.z - self.Kd * self.current_twist.twist.linear.z
+                # twist.twist.linear.x = (1 / self.Kp) * force.x - self.Kd * self.current_twist.twist.linear.x
+                # twist.twist.linear.y = (1 / self.Kp) * force.y - self.Kd * self.current_twist.twist.linear.y
+                # twist.twist.linear.z = (1 / self.Kp) * force.z - self.Kd * self.current_twist.twist.linear.z
 
-                twist.twist.angular.x = (1 / self.Kp) * torque.x - self.Kd * self.current_twist.twist.angular.x
-                twist.twist.angular.y = (1 / self.Kp) * torque.y - self.Kd * self.current_twist.twist.angular.y
-                twist.twist.angular.z = (1 / self.Kp) * torque.z - self.Kd * self.current_twist.twist.angular.z
+                # twist.twist.angular.x = (1 / self.Kp) * torque.x - self.Kd * self.current_twist.twist.angular.x
+                # twist.twist.angular.y = (1 / self.Kp) * torque.y - self.Kd * self.current_twist.twist.angular.y
+                # twist.twist.angular.z = (1 / self.Kp) * torque.z - self.Kd * self.current_twist.twist.angular.z
 
-                # Update the current twist for the next callback
-                self.current_twist = twist
+                # # Update the current twist for the next callback
+                # self.current_twist = twist
 
-                # Publish the computed twist
-                self.twist_pub_.publish(twist)
+                # # Publish the computed twist
+                # self.twist_pub_.publish(twist)
 
             except (LookupException, ConnectivityException, ExtrapolationException) as e:
                 self.get_logger().warn(f"Could not transform wrench to base_link frame: {str(e)}")
@@ -454,41 +474,39 @@ class DemoRecorder(Node):
 
         curr_pos = np.roll(np.array(msg.position),1).reshape(self.num_dofs,1)
 
+        if not self.initialized:
+            self.environment.env.GetRobots()[0].SetActiveDOFValues(curr_pos)
+            # Planner tells controller what plan to follow.
+            self.controller.set_trajectory(Trajectory([curr_pos], [0.0]))
+            self.initialized = True
+
         # When no in feature learning stage, update position.
         self.curr_pos = curr_pos
         self.curr_vel = np.roll(np.array(msg.velocity),1).reshape(self.num_dofs,1)
 
-        if self.controller.path_start_T is not None:
+        # if self.controller.path_start_T is not None:
+        if self.interaction:
             self.cmd = np.zeros((self.num_dofs, self.num_dofs))
 
-            timestamp = time.time() - self.controller.path_start_T
+            timestamp = time.time() - self.interaction_start
             self.expUtil.update_tracked_traj(timestamp, curr_pos)
+            self.get_logger().info(f'Collected {self.expUtil.tracked_traj.shape}')
         else:
-            self.cmd = self.controller.get_command(self.curr_pos, self.curr_vel)
+            # self.cmd = self.controller.get_command(self.curr_pos, self.curr_vel)
+            self.cmd = np.zeros((self.num_dofs, self.num_dofs))
 
 
-    def publish_trajectory(self):
-        if self.initial_joint_positions is None:
-            return
+    # def publish_trajectory(self):
+    #     if self.initial_joint_positions is None:
+    #         return
 
-        if self.can_move and not self.interaction:
-            joint_vel = np.array([self.cmd[i][i] for i in range(len(self.joint_names))])
+    #     if self.can_move and not self.interaction and self.initialized:
+    #         joint_vel = np.array([self.cmd[i][i] for i in range(len(self.joint_names))])
 
-            # Float64MultiArray
-            traj_msg = Float64MultiArray()
-            traj_msg.data = joint_vel
-            self.vel_pub.publish(traj_msg)
-
-    def get_user_input(self):
-        cnt = 0
-        while rclpy.ok():
-            if self.ready_for_input and cnt < 1:
-                self.get_logger().info("Ready for input")
-                cnt += 1
-            self.user_input = input()
-
-    def user_input_callback(self, msg):
-        self.user_input = msg.data
+    #         # Float64MultiArray
+    #         traj_msg = Float64MultiArray()
+    #         traj_msg.data = joint_vel
+    #         self.vel_pub.publish(traj_msg)
 
 
     def finalize_demo_trajectory(self):
@@ -497,15 +515,15 @@ class DemoRecorder(Node):
         # Process and save the recording.
         raw_demo = self.expUtil.tracked_traj[:,1:7]
 
-        # self.get_logger().info(f'raw_demo: {raw_demo.shape}')
+        self.get_logger().info(f'raw_demo: {raw_demo.shape}')
 
         # Trim ends of waypoints and create Trajectory.
         lo = 0
         hi = raw_demo.shape[0] - 1
-        while np.linalg.norm(raw_demo[lo] - raw_demo[lo + 1]) < 0.002 and lo < hi:
-            # self.get_logger().info(f'lo diff {lo}: {np.linalg.norm(raw_demo[lo] - raw_demo[lo + 1])}')
+        while np.linalg.norm(raw_demo[lo] - raw_demo[lo + 1]) < 1e-6 and lo < hi:
+            # self.get_logger().info(f'lo-{lo}: {np.linalg.norm(raw_demo[lo] - raw_demo[lo + 1])}')
             lo += 1
-        while np.linalg.norm(raw_demo[hi] - raw_demo[hi - 1]) < 0.002 and hi > 0:
+        while np.linalg.norm(raw_demo[hi] - raw_demo[hi - 1]) < 1e-6 and hi > 0:
             hi -= 1
         waypts = raw_demo[lo:hi+1, :]
         waypts_time = np.linspace(0.0, self.T, waypts.shape[0])
@@ -562,7 +580,7 @@ class DemoRecorder(Node):
                 pickle.dump(demo_feat_trace, f)
             self.get_logger().info("Saved demonstration in {}.".format(savefile))
         
-        sys.exit(0)
+
 
 
 def main(args=None):
