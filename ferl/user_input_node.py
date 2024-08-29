@@ -17,7 +17,7 @@ class UserInputNode(Node):
         # Publisher to send user input to 'output_topic'
         self.publisher = self.create_publisher(String, '/user_input', 10)
 
-        self.get_logger().info("String Relay Node initialized. Waiting for messages...")
+        self.get_logger().info("Node initialized. Waiting for messages...")
 
     def listener_callback(self, msg):
         # Display the received message

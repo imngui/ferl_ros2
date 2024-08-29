@@ -80,6 +80,9 @@ class DemoRecorder(Node):
 
         self.load_params()
         self.register_callbacks()
+        
+        self.run_thread = threading.Thread(target=self.run)
+        self.run_thread.start()
 
 
     def load_params(self):
@@ -277,6 +280,8 @@ class DemoRecorder(Node):
 
         self.user_input = None
         self.initialized = False
+        # TODO: Update
+        self.task_id = 0
 
 
     def register_callbacks(self):
@@ -284,13 +289,13 @@ class DemoRecorder(Node):
         Set up all the subscribers and publishers needed.
         """
         # self.traj_timer = self.create_timer(0.1, self.publish_trajectory)
-        self.vel_pub = self.create_publisher(Float64MultiArray, '/forward_velocity_controller/commands', 10)
+        # self.vel_pub = self.create_publisher(Float64MultiArray, '/forward_velocity_controller/commands', 10)
         self.joint_angles_sub = self.create_subscription(JointState, '/joint_states', self.joint_angles_callback, 10)
-        self.force_torque_subscription = self.create_subscription(
-            WrenchStamped,
-            '/force_torque_sensor_broadcaster/wrench',
-            self.wrench_callback,
-            10)
+        # self.force_torque_subscription = self.create_subscription(
+        #     WrenchStamped,
+        #     '/force_torque_sensor_broadcaster/wrench',
+        #     self.wrench_callback,
+        #     10)
         self.twist_pub_ = self.create_publisher(TwistStamped, '/servo_node/delta_twist_cmds', 10)
 
         # self.user_input_sub = self.create_subscription(String, '/user_input', self.user_input_callback, 10)
@@ -376,89 +381,71 @@ class DemoRecorder(Node):
     #         self.get_logger().warn("Could not zero ft sensor!")
 
 
-    def wrench_callback(self, msg):
-        self.latest_wrench = msg
+    # def wrench_callback(self, msg):
+    #     self.latest_wrench = msg
 
 
-    def timer_callback(self):
-        if self.latest_wrench is not None and self.initialized:
-            try:
-                # Look up the transformation from ft_frame to tool0 and then tool0 to base_link
-                ft_to_tool0 = self.tf_buffer.lookup_transform('tool0', self.latest_wrench.header.frame_id, rclpy.time.Time())
+    # def timer_callback(self):
+    #     if self.latest_wrench is not None and self.initialized:
+    #         try:
+    #             # Look up the transformation from ft_frame to tool0 and then tool0 to base_link
+    #             ft_to_tool0 = self.tf_buffer.lookup_transform('tool0', self.latest_wrench.header.frame_id, rclpy.time.Time())
 
-                # force = self.sub_init(self.latest_wrench.wrench.force , self.initial_wrench.wrench.force)
-                # torque = self.sub_init(self.latest_wrench.wrench.torque , self.initial_wrench.wrench.torque)
+    #             # force = self.sub_init(self.latest_wrench.wrench.force , self.initial_wrench.wrench.force)
+    #             # torque = self.sub_init(self.latest_wrench.wrench.torque , self.initial_wrench.wrench.torque)
 
-                force = self.latest_wrench.wrench.force 
-                torque = self.latest_wrench.wrench.torque 
+    #             force = self.latest_wrench.wrench.force 
+    #             torque = self.latest_wrench.wrench.torque 
 
-                # Transform the force/torque from ft_frame to tool0
-                force = self.transform_vector(ft_to_tool0, force)
-                torque = self.transform_vector(ft_to_tool0, torque)
+    #             # Transform the force/torque from ft_frame to tool0
+    #             force = self.transform_vector(ft_to_tool0, force)
+    #             torque = self.transform_vector(ft_to_tool0, torque)
 
-                # Nullify force/torque readings with magnitude < 3
-                force = self.nullify_small_magnitudes(force, 10.0)
-                torque = self.nullify_small_magnitudes(torque, 10.0)
+    #             # Nullify force/torque readings with magnitude < 3
+    #             force = self.nullify_small_magnitudes(force, 10.0)
+    #             torque = self.nullify_small_magnitudes(torque, 10.0)
 
-                self.prev_interaction = self.interaction
+    #             self.prev_interaction = self.interaction
 
-                if math.sqrt(force.x ** 2 + force.y ** 2 + force.z ** 2) < 10.0:
-                    # self.interaction = False
-                    # if self.prev_interaction != self.interaction:
-                        # self.new_plan_timer = self.create_timer(1.0, self.new_plan_callback)
-                    return
+    #             if math.sqrt(force.x ** 2 + force.y ** 2 + force.z ** 2) < 10.0:
+    #                 # self.interaction = False
+    #                 # if self.prev_interaction != self.interaction:
+    #                     # self.new_plan_timer = self.create_timer(1.0, self.new_plan_callback)
+    #                 return
 
-                self.interaction = True
-                self.can_move = False
-                if self.interaction_start is None:
-                    self.interaction_start = time.time()
+    #             self.interaction = True
+    #             self.can_move = False
+    #             if self.interaction_start is None:
+    #                 self.interaction_start = time.time()
 
-                # # Compute the twist in base_link frame
-                # twist = TwistStamped()
-                # twist.header.stamp = self.get_clock().now().to_msg()
-                # twist.header.frame_id = 'tool0'
-
-                # twist.twist.linear.x = (1 / self.Kp) * force.x - self.Kd * self.current_twist.twist.linear.x
-                # twist.twist.linear.y = (1 / self.Kp) * force.y - self.Kd * self.current_twist.twist.linear.y
-                # twist.twist.linear.z = (1 / self.Kp) * force.z - self.Kd * self.current_twist.twist.linear.z
-
-                # twist.twist.angular.x = (1 / self.Kp) * torque.x - self.Kd * self.current_twist.twist.angular.x
-                # twist.twist.angular.y = (1 / self.Kp) * torque.y - self.Kd * self.current_twist.twist.angular.y
-                # twist.twist.angular.z = (1 / self.Kp) * torque.z - self.Kd * self.current_twist.twist.angular.z
-
-                # # Update the current twist for the next callback
-                # self.current_twist = twist
-
-                # # Publish the computed twist
-                # self.twist_pub_.publish(twist)
-
-            except (LookupException, ConnectivityException, ExtrapolationException) as e:
-                self.get_logger().warn(f"Could not transform wrench to base_link frame: {str(e)}")
-
-
-    def transform_vector(self, transform, vector):
-        # Extract rotation (quaternion) and translation from TransformStamped
-        q = transform.transform.rotation
-
-        # Convert quaternion to rotation matrix using scipy
-        r = R.from_quat([q.x, q.y, q.z, q.w])
-
-        # Convert Vector3 to numpy array for easy multiplication
-        vector_np = np.array([vector.x, vector.y, vector.z])
-
-        # Apply the rotation
-        rotated_vector = r.apply(vector_np)
-
-        # Return the transformed vector as a Vector3
-        return Vector3(x=rotated_vector[0], y=rotated_vector[1], z=rotated_vector[2])
-
-
-    def nullify_small_magnitudes(self, vector, threshold):
-        magnitude = math.sqrt(vector.x ** 2 + vector.y ** 2 + vector.z ** 2)
-        if magnitude < threshold or np.isnan(magnitude):
-            return Vector3(x=0.0, y=0.0, z=0.0)
-        else:
-            return vector
+    def run(self):
+        cnt = 0
+        task = self.task_id
+        while rclpy.ok():
+            self.get_logger().info("Type [yes/y/Y] if you're ready to record a demonstration.")
+            user_input_req = String()
+            user_input_req.data = "Type [yes/y/Y] if you're ready to record a demonstration."
+            self.req_user_input_pub.publish(user_input_req)
+            
+            rec, msg = rclpy.wait_for_message.wait_for_message(String, self, '/user_input')
+            line = msg.data
+            if (line is not "yes") and (line is not "Y") and (line is not "y"):
+                self.get_logger().info("WHY?.")
+            else:
+                self.interaction_start = time.time()
+                self.initialized = True
+                
+                self.get_logger().info("Type [quit/q/Q] if you're ready to stop recording.")
+                user_input_req = String()
+                user_input_req.data = "Type [quit/q/Q] if you're ready to stop recording."
+                self.req_user_input_pub.publish(user_input_req)
+                
+                rec, msg = rclpy.wait_for_message.wait_for_message(String, self, '/user_input')
+                line = msg.data
+                if (line is not "quit") and (line is not "Q") and (line is not "q"):
+                    self.get_logger().info("WHY?.")
+                else:
+                    self.finalize_demo_trajectory(cnt)
 
 
     def joint_angles_callback(self, msg):
@@ -481,63 +468,25 @@ class DemoRecorder(Node):
             self.initialized = True
 
         # When no in feature learning stage, update position.
-        self.prev_pos = self.curr_pos
         self.curr_pos = curr_pos
 
-        self.curr_vel = np.roll(np.array(msg.velocity),1).reshape(self.num_dofs,1)
+        if self.interactioin:
+            timestamp = time.time() - self.interaction_start
+            self.expUtil.update_tracked_traj(timestamp, curr_pos)
 
-        # if self.controller.path_start_T is not None:
-        # if self.interaction:
-        if self.interaction_start is None:
-            return
-        
-        if np.linalg.norm(self.curr_pos - self.prev_pos) < 1e-4:
-            self.same_pos_count += 1
-        else:
-            self.same_pos_count = 0
-
-        if self.same_pos_count >= 20:
-            if self.data_timer is None:
-                self.last_pos = self.curr_pos
-                self.data_timer = self.create_timer(1.0, self.data_collected)
-            # self.interaction = False
-            # self.finalize_demo_trajectory()
-        
-        timestamp = time.time() - self.interaction_start
-        self.expUtil.update_tracked_traj(timestamp, curr_pos)
-        self.get_logger().info(f'Collected {self.expUtil.tracked_traj.shape}')
-        # else:
-        #     # self.cmd = self.controller.get_command(self.curr_pos, self.curr_vel)
-        #     self.cmd = np.zeros((self.num_dofs, self.num_dofs))
 
     def data_collected(self):
         self.get_logger().info("HERE")
         if np.linalg.norm(self.curr_pos - self.last_pos) < 1e-2:
             self.interaction = False
             self.finalize_demo_trajectory()
-            sys.exit(0)
         self.data_timer = None
 
-    # def publish_trajectory(self):
-    #     if self.initial_joint_positions is None:
-    #         return
-
-    #     if self.can_move and not self.interaction and self.initialized:
-    #         joint_vel = np.array([self.cmd[i][i] for i in range(len(self.joint_names))])
-
-    #         # Float64MultiArray
-    #         traj_msg = Float64MultiArray()
-    #         traj_msg.data = joint_vel
-    #         self.vel_pub.publish(traj_msg)
-
-
-    def finalize_demo_trajectory(self):
+    def finalize_demo_trajectory(self, demo_number):
         self.get_logger().info("Final")
 
         # Process and save the recording.
         raw_demo = self.expUtil.tracked_traj[:,1:7]
-
-        # self.get_logger().info(f'raw_demo: {raw_demo.shape}')
 
         # Trim ends of waypoints and create Trajectory.
         lo = 0
@@ -563,10 +512,6 @@ class DemoRecorder(Node):
         				self.environment.bodies, demo.waypts, color=[0, 0, 1])
 
         demo_feat_trace = map_traj_to_raw_dim(self.environment, traj.waypts)
-        # demo_feat_trace = []
-        # for waypt in traj.waypts:
-        #     demo_feat_trace.append(map_to_raw_dim(self.enviornment, ))
-
 
         self.ready_for_input = True
         self.get_logger().info("Type [yes/y/Y] if you're happy with the demonstration.")
@@ -579,18 +524,19 @@ class DemoRecorder(Node):
         if (line is not "yes") and (line is not "Y") and (line is not "y"):
             self.get_logger().info("Not happy with demonstration. Terminating experiment.")
         else:
-            self.get_logger().info("Please type in the ID number (e.g. [0/1/2/...]).")
-            user_input_req.data = "Please type in the ID number (e.g. [0/1/2/...])."
-            self.req_user_input_pub.publish(user_input_req)
-            # ID = input()
-            rec, msg = rclpy.wait_for_message.wait_for_message(String, self, '/user_input')
-            ID = msg.data
-            self.get_logger().info("Please type in the task number (e.g. [0/1/2/...]).")
-            user_input_req.data = "Please type in the task number (e.g. [0/1/2/...])."
-            self.req_user_input_pub.publish(user_input_req)
-            rec, msg = rclpy.wait_for_message.wait_for_message(String, self, '/user_input')
-            task = msg.data
-            self.user_input = None
+            # self.get_logger().info("Please type in the ID number (e.g. [0/1/2/...]).")
+            # user_input_req.data = "Please type in the ID number (e.g. [0/1/2/...])."
+            # self.req_user_input_pub.publish(user_input_req)
+            # # ID = input()
+            # rec, msg = rclpy.wait_for_message.wait_for_message(String, self, '/user_input')
+            # ID = msg.data
+            ID = demo_number
+            # self.get_logger().info("Please type in the task number (e.g. [0/1/2/...]).")
+            # user_input_req.data = "Please type in the task number (e.g. [0/1/2/...])."
+            # self.req_user_input_pub.publish(user_input_req)
+            # rec, msg = rclpy.wait_for_message.wait_for_message(String, self, '/user_input')
+            # task = msg.data
+            task = self.task_id
             filename = "demo" + "_ID" + ID + "_task" + task + ".p"
             savefile = os.path.join(get_package_share_directory('ferl'), 'data', 'demonstrations', 'demos', filename)
             ft_filename = "ft_" + filename
@@ -602,8 +548,6 @@ class DemoRecorder(Node):
                 pickle.dump(demo_feat_trace, f)
             self.get_logger().info("Saved demonstration in {}.".format(savefile))
         
-
-
 
 def main(args=None):
     rclpy.init(args=args)
