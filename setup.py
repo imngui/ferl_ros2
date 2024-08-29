@@ -31,6 +31,7 @@ setup(
             'test_vel = ferl.test_vel:main',
             'demo_recorder = ferl.demo_recorder:main',
             'user_input_node = ferl.user_input_node:main',
+            'xr_ferl = ferl.xr_ferl:main',
         ],
     },
 )

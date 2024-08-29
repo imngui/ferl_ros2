@@ -5,6 +5,21 @@ install ros-humble-srdfdom
 
 unzip the stls and place into the kortex_description meshes directory where the urdf specifies, replace dae with stl in the urdf
 
+# XR Instructions
+1. Launch simulated ur_robot_driver
+```bash
+ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:=yyy.yyy.yyy.yyy use_mock_hardware:=true launch_rviz:=true
+```
+
+2. Launch xr_ferl
+```bash
+ros2 launch ferl xr_ferl.launch.py ur_type:=ur5e launch_rviz:=false
+```
+3. Do VR Stuff
+
+
+
+
 # Steps to run
 1. Launch ur_robot_driver
 ```bash 

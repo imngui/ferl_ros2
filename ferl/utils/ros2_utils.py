@@ -8,6 +8,10 @@ from sensor_msgs.msg import JointState
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from controller_manager_msgs.srv import SwitchController
 
+import numpy as np
+from ferl.utils.trajectory import Trajectory
+
+
 import time
 
 def cmd_to_JointTorqueMsg(cmd):
@@ -47,6 +51,14 @@ def cmd_to_JointTrajMsg(joint_names, cmd):
 	traj_msg.points = [joint_cmd]
  
 	return traj_msg
+
+def traj_msg_to_trajectory(msg, joint_names):
+    traj = []
+    times = []
+    for point in msg.points:
+        traj.append(np.array(point.positions))
+        times.append(point.time_from_start.sec)
+    ret_traj = Trajectory(traj, times)
 
 def waypts_to_PoseArrayMsg(cart_waypts):
 	"""
