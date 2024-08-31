@@ -258,6 +258,7 @@ class XRFerl(Node):
         self.can_move = True
         # self.cmd = np.eye(self.num_dofs)
         self.get_logger().info(f'Done Learning, Resuming Planning')
+        self.publish_user_info("Done Learning, Resuming Planning")
         self.new_plan_timer = None
 
 
@@ -285,7 +286,7 @@ class XRFerl(Node):
             self.wrench_callback,
             10)
         
-        self.ready_for_ft_pub = self.create_publisher(JointTrajectory, '/ft_ready', 10)
+        self.ready_for_ft_pub = self.create_publisher(JointTrajectory, '/feedback_request', 10)
 
     def publish_user_info(self, message):
         msg = String()
@@ -309,6 +310,7 @@ class XRFerl(Node):
             self.interaction_data.append(np.array(point.effort)) # TODO are the joints in the right order???
             self.interaction_time.append(point.time_from_start.to_sec()) #TODO is this the right time?
         self.interaction_mode = True
+        self.timestamp = time.time() - self.controller.path_start_T
             
     def traj_to_raw(self, traj):
         raw_data = []
@@ -417,7 +419,7 @@ class XRFerl(Node):
                     satisfied_msg = Bool()
                     satisfied_msg.data = True
                     self.satisfied_publisher.publish(satisfied_msg)
-                    rec, msg = rclpy.wait_for_message.wait_for_message(Bool, self, '/satisfied')
+                    rec, msg = rclpy.wait_for_message.wait_for_message(Bool, self, '/feedback_response')
                     if msg.data:
                         break
 
@@ -426,7 +428,7 @@ class XRFerl(Node):
                     #     break
                 
                 # Compute new beta for the new feature.
-                beta_new = self.learner.learn_betas(self.traj, curr_torque, timestamp, [self.environment.num_features - 1])[0]
+                beta_new = self.learner.learn_betas(self.traj, curr_torque, self.timestamp, [self.environment.num_features - 1])[0]
                 betas.append(beta_new)
 
                 # Move time forward to return to interaction position.
