@@ -122,7 +122,9 @@ class XRFerl(Node):
 
         # ----- General Setup ----- #
         self.prefix = self.get_parameter('setup.prefix').value
+        self.get_logger().info(f'prefix: {self.prefix}')
         pick = self.get_parameter('setup.start').value
+        self.get_logger().info(f'pick: {pick}')
         self.start = np.array(pick)*(math.pi/180.0)
         place = self.get_parameter('setup.goal').value
         self.goal = np.array(place)*(math.pi/180.0)

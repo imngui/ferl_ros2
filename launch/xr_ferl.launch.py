@@ -115,7 +115,7 @@ def declare_arguments():
             ),
             DeclareLaunchArgument(
                 'config',
-                default_value=os.path.join(get_package_share_directory('ferl'),'config','test_vel.yaml'),
+                default_value=os.path.join(get_package_share_directory('ferl'),'config','feature_elicitator.yaml'),
                 description='Path to the config file'
             ),
             DeclareLaunchArgument(
@@ -142,13 +142,13 @@ def generate_launch_description():
     # description_file = LaunchConfiguration("description_file")
     tf_prefix = LaunchConfiguration("tf_prefix")
     urdf_file = os.path.join(get_package_share_directory("ur_robot_driver"), "urdf", "ur.urdf.xacro")
-    config_yaml = load_yaml("ferl", "config/test_vel.yaml")
-    config = LaunchConfiguration('config')
-    # config = LaunchConfiguration('config',
-    #                              default=os.path.join(
-    #                                  get_package_share_directory('ferl'),
-    #                                  'config',
-    #                                  'feature_elicitator.yaml'))
+    # config_yaml = load_yaml("ferl", "config/feature_elicitator.yaml")
+    # config = LaunchConfiguration('config')
+    config = LaunchConfiguration('config',
+                                 default=os.path.join(
+                                     get_package_share_directory('ferl'),
+                                     'config',
+                                     'feature_elicitator.yaml'))
 
     moveit_config = (
         MoveItConfigsBuilder(robot_name="ur", package_name="ur_moveit_config")
