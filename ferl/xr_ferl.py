@@ -317,7 +317,7 @@ class XRFerl(Node):
         return raw_data
 
     def check_interaction(self):
-        curr_torque = self.curr_torque # TODO get the current torque
+        curr_torque = self.interaction_data[-1] if len(self.interaction_data) > 0 else np.zeros((self.num_dofs, self.num_dofs))
         # TODO fix logic
         # self.get_logger().info(f'Interaction')
         # if self.reached_start and not self.reached_goal:
