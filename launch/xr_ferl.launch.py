@@ -115,7 +115,7 @@ def declare_arguments():
             ),
             DeclareLaunchArgument(
                 'config',
-                default_value=os.path.join(get_package_share_directory('ferl'),'config','feature_elicitator.yaml'),
+                default_value=os.path.join(get_package_share_directory('ferl'),'config','xr_ferl.yaml'),
                 description='Path to the config file'
             ),
             DeclareLaunchArgument(
@@ -148,7 +148,7 @@ def generate_launch_description():
                                  default=os.path.join(
                                      get_package_share_directory('ferl'),
                                      'config',
-                                     'feature_elicitator.yaml'))
+                                     'xr_ferl.yaml'))
 
     moveit_config = (
         MoveItConfigsBuilder(robot_name="ur", package_name="ur_moveit_config")

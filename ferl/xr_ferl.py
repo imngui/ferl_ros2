@@ -16,6 +16,7 @@ from std_srvs.srv import Trigger
 from sensor_msgs.msg import JointState
 
 from moveit_msgs.srv import ServoCommandType
+from controller_manager_msgs.srv import SwitchController
 from geometry_msgs.msg import WrenchStamped, TwistStamped, Vector3
 from tf2_ros import Buffer, TransformListener, LookupException, ConnectivityException, ExtrapolationException
 from scipy.spatial.transform import Rotation as R
@@ -253,7 +254,50 @@ class XRFerl(Node):
         self.new_plan_timer = None # self.create_timer(0.2, self.new_plan_callback)
         self.begin_motion_timer = None
         self.can_move = True
+        self.initialized = False
 
+        self.switch_controller_client = self.create_client(SwitchController, '/controller_manager/switch_controller')
+        self.deactivate_controller('scaled_joint_trajectory_controller')
+
+        # Forward Velocity Controller
+        self.activate_controller('forward_velocity_controller')
+
+        # Forward Position Controller
+        # self.activate_controller('forward_position_controller')
+
+
+    def activate_controller(self, controller_name):
+        if not self.switch_controller_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warn('Switch control sensor service not available, waiting again...')
+            return
+         
+        request = SwitchController.Request()
+        request.activate_controllers = [controller_name]
+
+        future = self.switch_controller_client.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+
+        if future.result() is not None and future.result().ok:
+            self.get_logger().info(f'Activated controller: {controller_name}')
+        else:
+            self.get_logger().warn(f'Could not activate controller: {controller_name}')
+
+
+    def deactivate_controller(self, controller_name):
+        if not self.switch_controller_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warn('Switch control service not available, waiting again...')
+            return
+        
+        request = SwitchController.Request()
+        request.deactivate_controllers = [controller_name]
+
+        future = self.switch_controller_client.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+
+        if future.result() is not None and future.result().ok:
+            self.get_logger().info(f'Deactivated controller: {controller_name}')
+        else:
+            self.get_logger().warn(f'Could not deactivate controller: {controller_name}')
 
 
     def new_plan_callback(self):
@@ -282,11 +326,11 @@ class XRFerl(Node):
 
         self.satisfied_publisher = self.create_publisher(Bool, '/req_satisfied', 10)
         # Subscribe to the force-torque sensor data
-        self.force_torque_subscription = self.create_subscription(
-            WrenchStamped,
-            '/force_torque_sensor_broadcaster/wrench',
-            self.wrench_callback,
-            10)
+        # self.force_torque_subscription = self.create_subscription(
+        #     WrenchStamped,
+        #     '/force_torque_sensor_broadcaster/wrench',
+        #     self.wrench_callback,
+        #     10)
         
         self.ready_for_ft_pub = self.create_publisher(JointTrajectory, '/feedback_request', 10)
 
@@ -337,7 +381,7 @@ class XRFerl(Node):
             return # Do nothing if interaction is currently happening
 
         # else:
-        self.get_logger().info(f'No interaction')
+        # self.get_logger().info(f'No interaction')
         # self.interaction_mode = True
         if self.interaction_mode and not self.learning:
             self.learning = True
@@ -484,6 +528,13 @@ class XRFerl(Node):
             self.joint_positions = self.initial_joint_positions
 
         curr_pos = np.roll(np.array(msg.position),1).reshape(self.num_dofs,1)
+
+        if not self.initialized:
+            self.environment.env.GetRobots()[0].SetActiveDOFValues(curr_pos)
+            self.start = curr_pos
+            self.goal = curr_pos
+            # self.goal[0] += 1.5708
+            self.initialized = True
 
         # Convert to radians.
         curr_pos = curr_pos
