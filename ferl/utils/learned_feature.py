@@ -39,12 +39,17 @@ class LearnedFeature(object):
 	6D_laptop, 6D_human	: only the endeffector xyz plus the xyz of the laptop or the human is used as input space
 	"""
 	def __init__(self, nb_layers, nb_units, LF_dict):
-		# obj = np.dtype([
-		# 	('array1', np.float64, (60))
-		# ])
+		self.obj_type = np.dtype([
+			('array1', np.float64, (72,)),
+			('array2', np.float64, (72,)),
+			('is_less', np.bool_),
+			('s0_delta', np.float64),
+			('s1_delta', np.float64)
+
+		])
 
 		self.trace_list = []
-		self.full_data_array = np.empty((0, 5), float)
+		self.full_data_array = np.empty((0,), self.obj_type)
 		self.start_labels = []
 		self.end_labels = []
 		self.subspaces_list = get_subranges(LF_dict)
@@ -134,7 +139,9 @@ class LearnedFeature(object):
 
 			Output: test & train data arrays of tuples
 		"""
-		full_data_array = np.empty((0, 5), float)
+
+
+		full_data_array = np.empty((0,), self.obj_type)
 		ordered_list = train_idx + test_idx
 		test_set_idx = None
 
@@ -149,8 +156,8 @@ class LearnedFeature(object):
 				idx_s0, idx_s1 = combi
 
 				# Ensure the shape of the trace points is consistent
-				# point1 = self.trace_list[idx][idx_s0, :].reshape(-1)
-				# point2 = self.trace_list[idx][idx_s1, :].reshape(-1)
+				point1 = self.trace_list[idx][idx_s0, :].reshape(-1)
+				point2 = self.trace_list[idx][idx_s1, :].reshape(-1)
 
 				# Create label differentials if necessary.
 				s0_delta = 0
@@ -161,8 +168,8 @@ class LearnedFeature(object):
 					s1_delta = 1. - self.end_labels[idx]
 
 				# data_tuples_to_append.append((point1, point2, idx_s0 < idx_s1, s0_delta, s1_delta))
-				# logger.info(f'p1: {point1}')
-				# logger.info(f'p2: {point2}')
+				logger.info(f'p1: {point1.shape}')
+				logger.info(f'p2: {point2.shape}')
 				data_tuples_to_append.append((
 					self.trace_list[idx][idx_s0, :], self.trace_list[idx][idx_s1, :],
 					idx_s0 < idx_s1, s0_delta, s1_delta))
