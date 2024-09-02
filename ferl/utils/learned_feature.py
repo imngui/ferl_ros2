@@ -9,6 +9,10 @@ from ferl.utils.transform_input import transform_input, get_subranges
 from ferl.utils.networks import DNN
 from torch.utils.data import Dataset, DataLoader
 
+from rclpy.impl import rcutils_logger
+logger = rcutils_logger.RcutilsLogger(name="learn_feat")
+
+
 
 class LearnedFeature(object):
 	"""
@@ -35,6 +39,9 @@ class LearnedFeature(object):
 	6D_laptop, 6D_human	: only the endeffector xyz plus the xyz of the laptop or the human is used as input space
 	"""
 	def __init__(self, nb_layers, nb_units, LF_dict):
+		# obj = np.dtype([
+		# 	('array1', np.float64, (60))
+		# ])
 
 		self.trace_list = []
 		self.full_data_array = np.empty((0, 5), float)
@@ -50,9 +57,10 @@ class LearnedFeature(object):
 		self.final_model = 0
 
 		# ---- Initialize Function approximators for each subspace ---- #
-		if self.LF_dict['subspace_heuristic']:
-			for sub_range in self.subspaces_list:
-				self.models.append(DNN(nb_layers, nb_units, sub_range[1] - sub_range[0]))
+		if 'subspace_heuristic' in self.LF_dict:
+			if self.LF_dict['subspace_heuristic']:
+				for sub_range in self.subspaces_list:
+					self.models.append(DNN(nb_layers, nb_units, sub_range[1] - sub_range[0]))
 		else:
 			self.models.append(DNN(nb_layers, nb_units, self.subspaces_list[-1][1]))
 
@@ -140,6 +148,10 @@ class LearnedFeature(object):
 				# Sample two points on that trajectory trace.
 				idx_s0, idx_s1 = combi
 
+				# Ensure the shape of the trace points is consistent
+				# point1 = self.trace_list[idx][idx_s0, :].reshape(-1)
+				# point2 = self.trace_list[idx][idx_s1, :].reshape(-1)
+
 				# Create label differentials if necessary.
 				s0_delta = 0
 				s1_delta = 0
@@ -148,10 +160,18 @@ class LearnedFeature(object):
 				if idx_s1 == self.trace_list[idx].shape[0] - 1:
 					s1_delta = 1. - self.end_labels[idx]
 
+				# data_tuples_to_append.append((point1, point2, idx_s0 < idx_s1, s0_delta, s1_delta))
+				# logger.info(f'p1: {point1}')
+				# logger.info(f'p2: {point2}')
 				data_tuples_to_append.append((
 					self.trace_list[idx][idx_s0, :], self.trace_list[idx][idx_s1, :],
 					idx_s0 < idx_s1, s0_delta, s1_delta))
+			# 	logger.info(f'tup: {data_tuples_to_append[-1]}')
+				
+			# logger.info(f"fda: {full_data_array.shape}")
+			# logger.info(f"dtta: {np.array(data_tuples_to_append).shape}")
 			full_data_array = np.vstack((full_data_array, np.array(data_tuples_to_append)))
+			# full_data_array.extend(data_tuples_to_append)
 
 			# Add between FERL_traces tuples
 			if ordered_list.index(idx) > 0:

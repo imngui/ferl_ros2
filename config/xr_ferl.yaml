@@ -42,7 +42,8 @@ xr_ferl_node:
                 - "6D_human:False"
                 - "9D_coffee:False"
             CONFIDENCE_THRESHOLD: 1.0
-            N_QUERIES: 10
+            # N_QUERIES: 10
+            N_QUERIES: 2
             nb_layers: 3
             nb_units: 128
 

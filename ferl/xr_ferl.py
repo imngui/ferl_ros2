@@ -28,19 +28,21 @@ from ferl.utils import ros2_utils, openrave_utils
 from ferl.utils.environment import Environment
 from ferl.utils.trajectory import Trajectory
 
+from collections import defaultdict
+
 import ast
 import numpy as np
 import threading
 
 def convert_string_array_to_dict(string_array):
-    feat_range_dict = {}
+    feat_range_dict = defaultdict(None)
     for item in string_array:
         key, value = item.split(':')
         feat_range_dict[key] = float(value)  # Convert the value to a float
     return feat_range_dict
     
 def convert_string_array_to_dict_of_lists(string_array):
-    object_centers_dict = {}
+    object_centers_dict = defaultdict(None)
     for item in string_array:
         key, value = item.split(':')
         # Use ast.literal_eval to safely evaluate the string as a Python list
@@ -51,7 +53,7 @@ def get_parameter_as_dict(string_array):
     """
     Convert a StringArray parameter to a dictionary with the appropriate Python types.
     """
-    converted_dict = {}
+    converted_dict = defaultdict(None)
     for item in string_array:
         key, value_str = item.split(':', 1)  # Split on the first colon
         converted_dict[key] = convert_string_to_appropriate_type(value_str)
@@ -318,7 +320,7 @@ class XRFerl(Node):
         self.vel_pub = self.create_publisher(Float64MultiArray, '/forward_velocity_controller/commands', 10)
         self.joint_angles_sub = self.create_subscription(JointState, '/joint_states', self.joint_angles_callback, 10)
         # self.joint_currents_sub = self.create_subscription(JointState, '/joint_states', self.joint_currents_callback, 10)
-        self.joint_current_timer = self.create_timer(0.01, self.check_interaction)
+        # self.joint_current_timer = self.create_timer(0.01, self.check_interaction)
 
         self.interaction_sub = self.create_subscription(Bool, '/interaction', self.interaction_callback, 10)
         self.demo_sub = self.create_subscription(JointTrajectory, '/joint_trajectory', self.demo_callback, 10)
@@ -332,7 +334,7 @@ class XRFerl(Node):
         #     self.wrench_callback,
         #     10)
         
-        self.ready_for_ft_pub = self.create_publisher(JointTrajectory, '/feedback_request', 10)
+        self.ready_for_ft_pub = self.create_publisher(Bool, '/feedback_request', 10)
 
     def publish_user_info(self, message):
         msg = String()
@@ -353,19 +355,27 @@ class XRFerl(Node):
         self.interaction_data = []
         self.interaction_time = []
         for point in msg.points:
-            self.interaction_data.append(np.array(point.effort)) # TODO are the joints in the right order???
-            self.interaction_time.append(point.time_from_start.to_sec()) #TODO is this the right time?
+            self.interaction_data.append(np.roll(np.array(point.effort), -1)) # TODO are the joints in the right order???
+            self.interaction_time.append(point.time_from_start._sec) #TODO is this the right time?
         self.interaction_mode = True
         self.timestamp = time.time() - self.controller.path_start_T
+        self.check_interaction()
             
     def traj_to_raw(self, traj):
         raw_data = []
         for waypt in traj.waypts:
             raw_data.append(self.environment.raw_features(waypt))
         return raw_data
+    
+    def traj_data_to_raw(self, traj_data):
+        raw_traj_data = []
+        for traj_pt in traj_data:
+            raw_traj_data.append(self.environment.raw_features(traj_pt))
+        return raw_traj_data
 
     def check_interaction(self):
         curr_torque = self.interaction_data[-1] if len(self.interaction_data) > 0 else np.zeros((self.num_dofs, self.num_dofs))
+        self.cmd = np.zeros((self.num_dofs, self.num_dofs))
         # TODO fix logic
         # self.get_logger().info(f'Interaction')
         # if self.reached_start and not self.reached_goal:
@@ -377,8 +387,8 @@ class XRFerl(Node):
         #         self.can_move = False
         #         self.cmd = np.zeros((self.num_dofs, self.num_dofs))
 
-        if self.interaction:
-            return # Do nothing if interaction is currently happening
+        # if self.interaction:
+        #     return # Do nothing if interaction is currently happening
 
         # else:
         # self.get_logger().info(f'No interaction')
@@ -400,8 +410,10 @@ class XRFerl(Node):
                 input_size = len(self.environment.raw_features(curr_torque))
                 self.environment.new_learned_feature(self.nb_layers, self.nb_units)
                 while True:
+                    np.zeros((self.num_dofs, self.num_dofs))
                     # Keep asking for input until we are confident.
                     for i in range(self.N_QUERIES):
+                        np.zeros((self.num_dofs, self.num_dofs))
                         self.get_logger().info("Need more data to learn the feature!")
                         self.publish_user_info("Need more data to learn the feature!")
                         self.feature_data = []
@@ -418,22 +430,28 @@ class XRFerl(Node):
                         rec, msg = rclpy.wait_for_message.wait_for_message(JointTrajectory, self, '/joint_trajectory')
                         if rec:
                             # Get the trajectory from XR
-                            traj_data = ros2_utils.traj_msg_to_trajectory(msg, self.joint_names)
+                            # traj_data = ros2_utils.traj_msg_to_trajectory(msg, self.joint_names)
                             
                             # Map it to raw features
-                            self.feature_data = self.traj_to_raw(traj_data)
+                            # self.feature_data = self.traj_to_raw(traj_data)
+
+                            traj_data = ros2_utils.traj_msg_to_data(msg, self.joint_names)
+                            self.feature_data = self.traj_data_to_raw(traj_data)
                             
                             # Pre-process the recorded data before training.
                             feature_data = np.squeeze(np.array(self.feature_data))
-                            lo = 0
-                            hi = feature_data.shape[0] - 1
-                            while np.linalg.norm(feature_data[lo] - feature_data[lo + 1]) < 0.01 and lo < hi:
-                                lo += 1
-                            while np.linalg.norm(feature_data[hi] - feature_data[hi - 1]) < 0.01 and hi > 0:
-                                hi -= 1
-                            feature_data = feature_data[lo:hi + 1, :]
-                            self.get_logger().info("Collected {} samples out of {}.".format(feature_data.shape[0], len(self.feature_data)))
-                            self.publish_user_info("Collected {} samples out of {}.".format(feature_data.shape[0], len(self.feature_data)))
+                            # feature_data = self.feature_data
+                            # lo = 0
+                            # hi = feature_data.shape[0] - 1
+                            # while np.linalg.norm(feature_data[lo] - feature_data[lo + 1]) < 1e-5 and lo < hi:
+                            #     lo += 1
+                            # while np.linalg.norm(feature_data[hi] - feature_data[hi - 1]) < 1e-5 and hi > 0:
+                            #     hi -= 1
+                            # feature_data = feature_data[lo:hi + 1, :]
+                            # self.get_logger().info("Collected {} samples out of {}.".format(feature_data.shape[0], len(self.feature_data)))
+                            # self.publish_user_info("Collected {} samples out of {}.".format(feature_data.shape[0], len(self.feature_data)))
+                            self.get_logger().info("Collected {} demonstrations out of {}.".format(i+1, self.N_QUERIES))
+                            self.publish_user_info("Collected {} demonstrations out of {}.".format(i+1, self.N_QUERIES))
 
                             # TODO: Put this in XR
                             # Provide optional start and end labels.
@@ -491,13 +509,6 @@ class XRFerl(Node):
 
             self.get_logger().info('Generating new trajectory')
             self.publish_user_info("Generating new trajectory")
-
-            self.get_logger().info('Updating openrave robot state')
-            self.publish_user_info("Updating openrave robot state")
-            self.environment.env.GetRobots()[0].SetActiveDOFValues(self.start)
-            self.get_logger().info('Replanning')
-            self.publish_user_info("Replanning")
-            self.traj = self.planner.replan(self.start, self.goal, self.goal_pose, self.T, self.timestep, seed=self.traj_plan.waypts)
             self.get_logger().info('Downsampling')
             self.publish_user_info("Downsampling")
             self.traj_plan = self.traj.downsample(self.planner.num_waypts)
@@ -558,6 +569,8 @@ class XRFerl(Node):
             return
         # self.get_logger().info(f'im: {self.interaction_mode}, cm: {self.can_move}, flm: {self.feature_learning_mode}')
         if not self.interaction_mode and self.can_move and not self.feature_learning_mode:
+            if self.controller.path_start_T is None:
+                self.controller.path_start_T = time.time()
             # self.get_logger().info('Publishing trajectory')
             joint_vel = np.array([self.cmd[i][i] for i in range(len(self.joint_names))]) 
             

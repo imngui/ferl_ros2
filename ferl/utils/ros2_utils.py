@@ -53,12 +53,19 @@ def cmd_to_JointTrajMsg(joint_names, cmd):
 	return traj_msg
 
 def traj_msg_to_trajectory(msg, joint_names):
-    traj = []
-    times = []
-    for point in msg.points:
-        traj.append(np.array(point.positions))
-        times.append(point.time_from_start.sec)
-    ret_traj = Trajectory(traj, times)
+	traj = []
+	times = []
+	for point in msg.points:
+		traj.append(np.array(point.positions))
+		times.append(point.time_from_start.sec)
+	ret_traj = Trajectory(traj, times)
+	return ret_traj
+
+def traj_msg_to_data(msg, joint_names):
+	traj_data = []
+	for point in msg.points:
+		traj_data.append(np.array(point.positions))
+	return traj_data
 
 def waypts_to_PoseArrayMsg(cart_waypts):
 	"""
