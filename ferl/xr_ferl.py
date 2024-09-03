@@ -8,6 +8,7 @@ import math
 import sys, select, os
 import time
 import torch
+import pickle
 
 import rclpy.wait_for_message
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
@@ -128,11 +129,11 @@ class XRFerl(Node):
         self.get_logger().info(f'prefix: {self.prefix}')
         pick = self.get_parameter('setup.start').value
         self.get_logger().info(f'pick: {pick}')
-        self.start = np.array(pick)*(math.pi/180.0)
+        self.start = np.array(pick)#*(math.pi/180.0)
         place = self.get_parameter('setup.goal').value
-        self.goal = np.array(place)*(math.pi/180.0)
+        self.goal = np.array(place)#*(math.pi/180.0)
         # self.get_logger().info(f'start: {np.array2string(self.start)}')
-        # self.get_logger().info(f'goal: {np.array2string(self.goal)}')
+        self.get_logger().info(f'goal: {np.array2string(self.goal)}')
 
         self.goal_pose = self.get_parameter('setup.goal_pose').value
         self.T = self.get_parameter('setup.T').value
@@ -252,6 +253,7 @@ class XRFerl(Node):
         # self.wrench_timer = self.create_timer(1.0 / 500.0, self.timer_callback)
 
         self.latest_wrench = None
+        self.new_plan = False
 
         self.new_plan_timer = None # self.create_timer(0.2, self.new_plan_callback)
         self.begin_motion_timer = None
@@ -303,11 +305,13 @@ class XRFerl(Node):
 
 
     def new_plan_callback(self):
-        self.can_move = True
-        # self.cmd = np.eye(self.num_dofs)
-        self.get_logger().info(f'Done Learning, Resuming Planning')
-        self.publish_user_info("Done Learning, Resuming Planning")
-        self.new_plan_timer = None
+        if self.new_plan:
+            self.can_move = True
+            # self.cmd = np.eye(self.num_dofs)
+            self.get_logger().info(f'Done Learning, Resuming Planning')
+            self.publish_user_info("Done Learning, Resuming Planning")
+            self.new_plan_timer = None
+            self.new_plan = False
 
 
     def register_callbacks(self):
@@ -347,6 +351,13 @@ class XRFerl(Node):
         if self.interaction:
             self.get_logger().info('Interaction started')
             self.cmd = np.zeros((self.num_dofs, self.num_dofs))
+            # self.controller.set_trajectory(Trajectory([curr_pos], [0.0]))
+            joint_vel = np.array([self.cmd[i][i] for i in range(len(self.joint_names))]) 
+            
+            # Float64MultiArray
+            traj_msg = Float64MultiArray()
+            traj_msg.data = joint_vel
+            self.vel_pub.publish(traj_msg)
         else:
             self.get_logger().info('Interaction not started')
     
@@ -354,12 +365,29 @@ class XRFerl(Node):
         # Convert the message to interaction data in the form of torques.
         self.interaction_data = []
         self.interaction_time = []
+        points = []
         for point in msg.points:
             self.interaction_data.append(np.roll(np.array(point.effort), -1)) # TODO are the joints in the right order???
             self.interaction_time.append(point.time_from_start._sec) #TODO is this the right time?
+            points.append(np.roll(np.array(point.positions), -1))
+        lo = 0
+        hi = len(self.interaction_data) - 1
+        while np.linalg.norm(self.interaction_data[lo] - self.interaction_data[lo + 1]) < 1e-5 and lo < hi:
+            lo += 1
+        while np.linalg.norm(self.interaction_data[hi] - self.interaction_data[hi - 1]) < 1e-5 and hi > 0:
+            hi -= 1
+        self.get_logger().info(f'torque lo: {lo}')
+        self.get_logger().info(f'torque hi: {hi}')
+        self.interaction_data = self.interaction_data[lo:hi + 1]
+        interaction_point = points[hi+1]
+        self.get_logger().info(f'torque: {self.interaction_data[0]}')
         self.interaction_mode = True
+
+        # TODO: Let controller move to interaction point while learning
+
         self.timestamp = time.time() - self.controller.path_start_T
-        self.check_interaction()
+        if not self.learning:
+            self.check_interaction()
             
     def traj_to_raw(self, traj):
         raw_data = []
@@ -374,157 +402,170 @@ class XRFerl(Node):
         return raw_traj_data
 
     def check_interaction(self):
-        curr_torque = self.interaction_data[-1] if len(self.interaction_data) > 0 else np.zeros((self.num_dofs, self.num_dofs))
-        self.cmd = np.zeros((self.num_dofs, self.num_dofs))
-        # TODO fix logic
-        # self.get_logger().info(f'Interaction')
-        # if self.reached_start and not self.reached_goal:
-        #     timestamp = time.time() - self.controller.path_start_T
-        #     self.interaction_data.append(curr_torque)
-        #     self.interaction_time.append(timestamp)
-        #     if self.interaction_mode == False:
-        #         self.interaction_mode = True
-        #         self.can_move = False
-        #         self.cmd = np.zeros((self.num_dofs, self.num_dofs))
+        if not self.feature_learning_mode:
+            curr_torque = self.interaction_data[0] if len(self.interaction_data) > 0 else np.zeros((self.num_dofs, self.num_dofs))
+            self.cmd = np.zeros((self.num_dofs, self.num_dofs))
+            # TODO fix logic
+            # self.get_logger().info(f'Interaction')
+            # if self.reached_start and not self.reached_goal:
+            #     timestamp = time.time() - self.controller.path_start_T
+            #     self.interaction_data.append(curr_torque)
+            #     self.interaction_time.append(timestamp)
+            #     if self.interaction_mode == False:
+            #         self.interaction_mode = True
+            #         self.can_move = False
+            #         self.cmd = np.zeros((self.num_dofs, self.num_dofs))
 
-        # if self.interaction:
-        #     return # Do nothing if interaction is currently happening
+            # if self.interaction:
+            #     return # Do nothing if interaction is currently happening
 
-        # else:
-        # self.get_logger().info(f'No interaction')
-        # self.interaction_mode = True
-        if self.interaction_mode and not self.learning:
-            self.learning = True
-            self.get_logger().info(f'Learning')
-            self.publish_user_info("Learning")
-            # Check if betas are above CONFIDENCE_THRESHOLD.
-            betas = self.learner.learn_betas(self.traj, self.interaction_data[0], self.interaction_time[0])
-            for beta in betas:
-                self.get_logger().info(f'beta: {beta}')
-            if max(betas) < self.CONFIDENCE_THRESHOLD:
-                # We must learn a new feature that passes CONFIDENCE_THRESHOLD before resuming.
-                self.get_logger().info("The robot does not understand the input!")
-                self.publish_user_info("The robot does not understand the input!")
-                self.feature_learning_mode = True
-                feature_learning_timestamp = time.time()
-                input_size = len(self.environment.raw_features(curr_torque))
-                self.environment.new_learned_feature(self.nb_layers, self.nb_units)
-                while True:
-                    np.zeros((self.num_dofs, self.num_dofs))
-                    # Keep asking for input until we are confident.
-                    for i in range(self.N_QUERIES):
+            # else:
+            # self.get_logger().info(f'No interaction')
+            # self.interaction_mode = True
+            if self.interaction_mode and not self.learning and not self.feature_learning_mode:
+                self.learning = True
+                self.get_logger().info(f'Learning')
+                self.publish_user_info("Learning")
+                # Check if betas are above CONFIDENCE_THRESHOLD.
+                betas = self.learner.learn_betas(self.traj, self.interaction_data[0], self.interaction_time[0])
+                # for beta in betas:
+                self.get_logger().info(f'betas: {betas}')
+                if max(betas) < self.CONFIDENCE_THRESHOLD:
+                    # We must learn a new feature that passes CONFIDENCE_THRESHOLD before resuming.
+                    self.get_logger().info("The robot does not understand the input!")
+                    self.publish_user_info("The robot does not understand the input!")
+                    self.feature_learning_mode = True
+                    feature_learning_timestamp = time.time()
+                    input_size = len(self.environment.raw_features(curr_torque))
+                    self.environment.new_learned_feature(self.nb_layers, self.nb_units)
+                    cnt = 0
+                    while True:
                         np.zeros((self.num_dofs, self.num_dofs))
-                        self.get_logger().info("Need more data to learn the feature!")
-                        self.publish_user_info("Need more data to learn the feature!")
-                        self.feature_data = []
+                        # Keep asking for input until we are confident.
+                        for i in range(self.N_QUERIES):
+                            np.zeros((self.num_dofs, self.num_dofs))
+                            self.get_logger().info("Need more data to learn the feature!")
+                            self.publish_user_info("Need more data to learn the feature!")
+                            self.feature_data = []
 
-                        # # Request the person to place the robot in a low feature value state.
-                        self.get_logger().info("Place the robot in a low feature value state and move to a high feature value state.")
-                        self.publish_user_info("Place the robot in a low feature value state and move to a high feature value state.")
-                        ready_msg = Bool()
-                        ready_msg.data = True
-                        self.ready_for_ft_pub.publish(ready_msg)
+                            # # Request the person to place the robot in a low feature value state.
+                            self.get_logger().info("Place the robot in a low feature value state and move to a high feature value state.")
+                            self.publish_user_info("Place the robot in a low feature value state and move to a high feature value state.")
+                            ready_msg = Bool()
+                            ready_msg.data = True
+                            self.ready_for_ft_pub.publish(ready_msg)
+                            
+                            self.get_logger().info("Waiting for feature trace...")
+                            self.publish_user_info("Waiting for feature trace...")
+                            rec, msg = rclpy.wait_for_message.wait_for_message(JointTrajectory, self, '/joint_trajectory')
+                            if rec:
+                                # Get the trajectory from XR
+                                # traj_data = ros2_utils.traj_msg_to_trajectory(msg, self.joint_names)
+                                
+                                # Map it to raw features
+                                # self.feature_data = self.traj_to_raw(traj_data)
+
+                                traj_data = ros2_utils.traj_msg_to_data(msg, self.joint_names)
+                                for pnt in traj_data:
+                                    self.get_logger().info(f'pos: {pnt}')
+                                self.feature_data = self.traj_data_to_raw(traj_data)
+                                
+                                # Pre-process the recorded data before training.
+                                feature_data = np.squeeze(np.array(self.feature_data))
+                                # feature_data = self.feature_data
+                                lo = 0
+                                hi = feature_data.shape[0] - 1
+                                while np.linalg.norm(feature_data[lo] - feature_data[lo + 1]) < 1e-5 and lo < hi:
+                                    # self.get_logger().info(f'tol: {np.linalg.norm(feature_data[lo] - feature_data[lo + 1])}, pos: {feature_data[lo]}')
+                                    lo += 1
+                                while np.linalg.norm(feature_data[hi] - feature_data[hi - 1]) < 1e-5 and hi > 0:
+                                    hi -= 1
+                                self.get_logger().info(f'torque lo: {lo}')
+                                self.get_logger().info(f'torque hi: {hi}')
+                                feature_data = feature_data[lo:hi + 1, :]
+                                # self.get_logger().info("Collected {} samples out of {}.".format(feature_data.shape[0], len(self.feature_data)))
+                                # self.publish_user_info("Collected {} samples out of {}.".format(feature_data.shape[0], len(self.feature_data)))
+                                self.get_logger().info("Collected {} demonstrations out of {}.".format(i+1, self.N_QUERIES))
+                                self.publish_user_info("Collected {} demonstrations out of {}.".format(i+1, self.N_QUERIES))
+
+                                # TODO: Put this in XR
+                                # Provide optional start and end labels.
+                                start_label = 0.0
+                                end_label = 1.0
+                                # self.get_logger().info("Would you like to label your start? Press ENTER if not or enter a number from 0-10")
+                                # line = sys.stdin.readline()
+                                # if line in [str(i) for i in range(11)]:
+                                #     start_label = int(i) / 10.0
+
+                                # self.get_logger().info("Would you like to label your goal? Press ENTER if not or enter a number from 0-10")
+                                # line = sys.stdin.readline()
+                                # if line in [str(i) for i in range(11)]:
+                                #     end_label = int(i) / 10.0
+
+                                # Add the newly collected data.
+                                self.environment.learned_features[-1].add_data(feature_data, start_label, end_label)
+                            else:
+                                i = i - 1
+                                self.get_logger().info("Failed to get feature trace. Retrying...")
+                                self.publish_user_info("Failed to get feature trace. Retrying...")
+
+                        filename = "demo_" + str(cnt) + "_table.p"
+                        savefile = os.path.join(get_package_share_directory('ferl'), 'data', 'demonstrations', filename)
+                        with open(savefile, "wb") as f:
+                            pickle.dump(self.environment.learned_features[-1].trace_list, f)
                         
-                        self.get_logger().info("Waiting for feature trace...")
-                        self.publish_user_info("Waiting for feature trace...")
-                        rec, msg = rclpy.wait_for_message.wait_for_message(JointTrajectory, self, '/joint_trajectory')
-                        if rec:
-                            # Get the trajectory from XR
-                            # traj_data = ros2_utils.traj_msg_to_trajectory(msg, self.joint_names)
-                            
-                            # Map it to raw features
-                            # self.feature_data = self.traj_to_raw(traj_data)
+                        # Train new feature with data of increasing "goodness".
+                        self.environment.learned_features[-1].train()
 
-                            traj_data = ros2_utils.traj_msg_to_data(msg, self.joint_names)
-                            self.feature_data = self.traj_data_to_raw(traj_data)
-                            
-                            # Pre-process the recorded data before training.
-                            feature_data = np.squeeze(np.array(self.feature_data))
-                            # feature_data = self.feature_data
-                            # lo = 0
-                            # hi = feature_data.shape[0] - 1
-                            # while np.linalg.norm(feature_data[lo] - feature_data[lo + 1]) < 1e-5 and lo < hi:
-                            #     lo += 1
-                            # while np.linalg.norm(feature_data[hi] - feature_data[hi - 1]) < 1e-5 and hi > 0:
-                            #     hi -= 1
-                            # feature_data = feature_data[lo:hi + 1, :]
-                            # self.get_logger().info("Collected {} samples out of {}.".format(feature_data.shape[0], len(self.feature_data)))
-                            # self.publish_user_info("Collected {} samples out of {}.".format(feature_data.shape[0], len(self.feature_data)))
-                            self.get_logger().info("Collected {} demonstrations out of {}.".format(i+1, self.N_QUERIES))
-                            self.publish_user_info("Collected {} demonstrations out of {}.".format(i+1, self.N_QUERIES))
+                        # Check if we are happy with the input.
+                        self.get_logger().info("Are you happy with the training? (y/n)")
+                        self.publish_user_info("Are you happy with the training? (y/n)")
+                        satisfied_msg = Bool()
+                        satisfied_msg.data = True
+                        self.satisfied_publisher.publish(satisfied_msg)
+                        rec, msg = rclpy.wait_for_message.wait_for_message(Bool, self, '/feedback_response')
+                        if msg.data:
+                            break
 
-                            # TODO: Put this in XR
-                            # Provide optional start and end labels.
-                            start_label = 0.0
-                            end_label = 1.0
-                            # self.get_logger().info("Would you like to label your start? Press ENTER if not or enter a number from 0-10")
-                            # line = sys.stdin.readline()
-                            # if line in [str(i) for i in range(11)]:
-                            #     start_label = int(i) / 10.0
-
-                            # self.get_logger().info("Would you like to label your goal? Press ENTER if not or enter a number from 0-10")
-                            # line = sys.stdin.readline()
-                            # if line in [str(i) for i in range(11)]:
-                            #     end_label = int(i) / 10.0
-
-                            # Add the newly collected data.
-                            self.environment.learned_features[-1].add_data(feature_data, start_label, end_label)
-                        else:
-                            i = i - 1
-                            self.get_logger().info("Failed to get feature trace. Retrying...")
-                            self.publish_user_info("Failed to get feature trace. Retrying...")
+                        # line = sys.stdin.readline()
+                        # if line == "yes" or line == "Y" or line == "y":
+                        #     break
                     
-                    # Train new feature with data of increasing "goodness".
-                    self.environment.learned_features[-1].train()
+                    # Compute new beta for the new feature.
+                    beta_new = self.learner.learn_betas(self.traj, curr_torque, self.timestamp, [self.environment.num_features - 1])[0]
+                    betas.append(beta_new)
 
-                    # Check if we are happy with the input.
-                    self.get_logger().info("Are you happy with the training? (y/n)")
-                    self.publish_user_info("Are you happy with the training? (y/n)")
-                    satisfied_msg = Bool()
-                    satisfied_msg.data = True
-                    self.satisfied_publisher.publish(satisfied_msg)
-                    rec, msg = rclpy.wait_for_message.wait_for_message(Bool, self, '/feedback_response')
-                    if msg.data:
-                        break
+                    # Move time forward to return to interaction position.
+                    self.controller.path_start_T += (time.time() - feature_learning_timestamp)
 
-                    # line = sys.stdin.readline()
-                    # if line == "yes" or line == "Y" or line == "y":
-                    #     break
+                # We do no have misspecification now, so resume reward learning.
+                self.feature_learning_mode = False
                 
-                # Compute new beta for the new feature.
-                beta_new = self.learner.learn_betas(self.traj, curr_torque, self.timestamp, [self.environment.num_features - 1])[0]
-                betas.append(beta_new)
+                # learn reward.
+                self.get_logger().info('Learning weights')
+                self.publish_user_info("Learning weights")
+                for i in range(len(self.interaction_data)):
+                    self.learner.learn_weights(self.traj, self.interaction_data[i], self.interaction_time[i], betas)
 
-                # Move time forward to return to interaction position.
-                self.controller.path_start_T += (time.time() - feature_learning_timestamp)
+                self.get_logger().info('Generating new trajectory')
+                self.publish_user_info("Generating new trajectory")
+                self.get_logger().info('Downsampling')
+                self.publish_user_info("Downsampling")
+                self.traj_plan = self.traj.downsample(self.planner.num_waypts)
+                self.get_logger().info('Updating Controller')
+                self.publish_user_info("Updating Controller")
+                self.controller.set_trajectory(self.traj)
 
-            # We do no have misspecification now, so resume reward learning.
-            self.feature_learning_mode = False
-            
-            # learn reward.
-            self.get_logger().info('Learning weights')
-            self.publish_user_info("Learning weights")
-            for i in range(len(self.interaction_data)):
-                self.learner.learn_weights(self.traj, self.interaction_data[i], self.interaction_time[i], betas)
-
-            self.get_logger().info('Generating new trajectory')
-            self.publish_user_info("Generating new trajectory")
-            self.get_logger().info('Downsampling')
-            self.publish_user_info("Downsampling")
-            self.traj_plan = self.traj.downsample(self.planner.num_waypts)
-            self.get_logger().info('Updating Controller')
-            self.publish_user_info("Updating Controller")
-            self.controller.set_trajectory(self.traj)
-
-            # Turn off interaction mode.
-            self.interaction_mode = False
-            self.interaction_data = []
-            self.interaction_time = []
-            self.learning = False
-            self.get_logger().info('Done!')
-            self.publish_user_info("Done!")
-            self.new_plan_timer = self.create_timer(1.0, self.new_plan_callback)
-                
+                # Turn off interaction mode.
+                self.interaction_mode = False
+                self.interaction_data = []
+                self.interaction_time = []
+                self.learning = False
+                self.get_logger().info('Done!')
+                self.publish_user_info("Done!")
+                self.new_plan = True
+                self.new_plan_timer = self.create_timer(1.0, self.new_plan_callback)
+                    
 
 
     def joint_angles_callback(self, msg):
@@ -543,7 +584,7 @@ class XRFerl(Node):
         if not self.initialized:
             self.environment.env.GetRobots()[0].SetActiveDOFValues(curr_pos)
             self.start = curr_pos
-            self.goal = curr_pos
+            # self.goal = curr_pos
             # self.goal[0] += 1.5708
             self.initialized = True
 
@@ -567,8 +608,8 @@ class XRFerl(Node):
     def publish_trajectory(self):
         if self.initial_joint_positions is None:
             return
-        # self.get_logger().info(f'im: {self.interaction_mode}, cm: {self.can_move}, flm: {self.feature_learning_mode}')
-        if not self.interaction_mode and self.can_move and not self.feature_learning_mode:
+        # self.get_logger().info(f'im: {self.interaction_mode}, cm: {self.can_move}, flm: {self.feature_learning_mode}, i: {self.interaction}')
+        if not self.interaction_mode and self.can_move and not self.feature_learning_mode and not self.interaction:
             if self.controller.path_start_T is None:
                 self.controller.path_start_T = time.time()
             # self.get_logger().info('Publishing trajectory')

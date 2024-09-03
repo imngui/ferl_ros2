@@ -2,6 +2,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from rclpy.impl import rcutils_logger
+logger = rcutils_logger.RcutilsLogger(name="network")
+
 class DNN(nn.Module):
 	"""
 	Creates a NN with leaky ReLu non-linearity.
@@ -15,6 +18,7 @@ class DNN(nn.Module):
 
 		layers = []
 		dim_list = [input_dim] + [nb_units] * nb_layers + [1]
+		logger.info(f'dim_list: {dim_list}')
 
 		for i in range(len(dim_list) - 1):
 			layers.append(nn.Linear(dim_list[i], dim_list[i+1]))
@@ -30,6 +34,7 @@ class DNN(nn.Module):
 		self.apply(weights_init)
 
 	def forward(self, x):
+		# logger.info(f'network x: {x.shape}')
 		for layer in self.fc[:-1]:
 			x = F.leaky_relu(layer(x))
 		x = F.softplus(self.fc[-1](x))

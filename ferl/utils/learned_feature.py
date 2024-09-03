@@ -81,13 +81,17 @@ class LearnedFeature(object):
 
 		# Torchify the input
 		x = self.input_torchify(x)
+		# logger.info(f'learned_feat: {x.shape}')
 
 		# Transform the input
 		x = transform_input(x, self.LF_dict)
+		# logger.info(f'learned_feat transform: {x.shape}')
 
-		if self.LF_dict['subspace_heuristic']: # transform to the model specific subspace input
-			sub_range = self.subspaces_list[model]
-			x = x[:, sub_range[0]:sub_range[1]]
+
+		if 'subspace_heuristic' in self.LF_dict:
+			if self.LF_dict['subspace_heuristic']: # transform to the model specific subspace input
+				sub_range = self.subspaces_list[model]
+				x = x[:, sub_range[0]:sub_range[1]]
 		y = self.models[model](x)
 
 		if norm:
@@ -159,7 +163,7 @@ class LearnedFeature(object):
 					self.trace_list[idx][idx_s0, :], self.trace_list[idx][idx_s1, :],
 					idx_s0 < idx_s1, s0_delta, s1_delta))
 
-			full_data_array = np.vstack((full_data_array, np.array(data_tuples_to_append)))
+			full_data_array = np.vstack((full_data_array, np.array(data_tuples_to_append, dtype=object)))
 
 			# Add between FERL_traces tuples
 			if ordered_list.index(idx) > 0:
@@ -170,7 +174,7 @@ class LearnedFeature(object):
 					G_tuple = [(self.trace_list[other_traj_idx][-1, :], self.trace_list[idx][-1, :], 0.5,
 								1 - self.end_labels[other_traj_idx], 1 - self.end_labels[idx])] * self.LF_dict['bet_data']
 					tuples_to_append = tuples_to_append + S_tuple + G_tuple
-				full_data_array = np.vstack((full_data_array, np.array(tuples_to_append)))
+				full_data_array = np.vstack((full_data_array, np.array(tuples_to_append, dtype=object)))
 
 		# split in train & test tuples
 		self.full_data_array = full_data_array
@@ -188,11 +192,12 @@ class LearnedFeature(object):
 
 			Output: optimizer of the choosen final model
 		"""
-		if len(self.trace_list) == 1 and self.LF_dict['subspace_heuristic']:
-			print("Subspace Heuristic needs at least two Feature Traces to work.")
+		if 'subspace_heuristic' in self.LF_dict:
+			if len(self.trace_list) == 1 and self.LF_dict['subspace_heuristic']:
+				logger.info("Subspace Heuristic needs at least two Feature Traces to work.")
 
 		n_test = int(math.floor(len(self.trace_list) * 0.5))
-		print("Select subspace training, testing on " + str(n_test) + " unseen Trajectory")
+		logger.info(f"Select subspace training, testing on {str(n_test)} unseen Trajectory")
 		# split trajectory list
 		test_idx = np.random.choice(np.arange(len(self.trace_list)), size=n_test, replace=False)
 		train_idx = np.setdiff1d(np.arange(len(self.trace_list)), test_idx)
@@ -200,9 +205,9 @@ class LearnedFeature(object):
 		test_data_array, train_data_array = self.get_train_test_arrays(train_idx.tolist(), test_idx.tolist())
 
 		train_dataset = FeatureLearningDataset(train_data_array)
-		print("len train: ", train_data_array.shape[0])
+		logger.info(f"len train: {train_data_array.shape[0]}")
 		test_dataset = FeatureLearningDataset(test_data_array)
-		print("len test: ", test_data_array.shape[0])
+		logger.info(f"len test: {test_data_array.shape[0]}")
 		train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 		test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
 
@@ -212,12 +217,13 @@ class LearnedFeature(object):
 			optimizers.append(optim.Adam(self.models[i].parameters(), lr=learning_rate, weight_decay=weight_decay))
 
 		# unnecessary if only one subspace
-		if len(self.subspaces_list) ==1 or self.LF_dict['subspace_heuristic']:
-			print("No subspace selection performed.")
-			return optimizers[0]
+		if 'subspace_heuristic' in self.LF_dict:
+			if len(self.subspaces_list) ==1 or self.LF_dict['subspace_heuristic']:
+				logger.info("No subspace selection performed.")
+				return optimizers[0]
 
-		train_losses = [[] for _ in range(len(self.subspaces_list))]
-		test_losses = [[] for _ in range(len(self.subspaces_list))]
+		train_losses = [[] for _ in range(len(self.subspaces_list)-1)]
+		test_losses = [[] for _ in range(len(self.subspaces_list)-1)]
 
 		# check if any non-standard label is used
 		norm_per_epoch = False
@@ -252,9 +258,12 @@ class LearnedFeature(object):
 					for batch in test_loader:
 						loss = self.FERL_loss(batch, model_idx=i, s_g_weight=s_g_weight)
 						avg_in_loss.append(loss.item())
+						# logger.info(f'avg_in_loss: {avg_in_loss}')
 					# log over training
 					test_losses[i].append(sum(avg_in_loss) / len(avg_in_loss))
 
+					logger.info(f'test losses inner: {test_losses}')
+				logger.info(f'test losses outer: {test_losses}')
 				T.set_postfix(test_loss=[loss[-1] for loss in test_losses])
 
 		for idx in range(len(self.models)):
@@ -264,7 +273,7 @@ class LearnedFeature(object):
 		final_test_losses = [loss[-1] for loss in test_losses]
 		val, last_loss_idx = min((val, idx) for (idx, val) in enumerate(final_test_losses))
 
-		print("Model of subspace " + str(last_loss_idx) + "selected as final model")
+		logger.info(f"Model of subspace {str(last_loss_idx)} selected as final model")
 		self.final_model = last_loss_idx
 
 		return optimizers[last_loss_idx]
@@ -332,8 +341,8 @@ class LearnedFeature(object):
 		# Heuristic to select subspace by training for 10 epochs a NN on each of them
 		final_mod_optimizer = self.select_subspace(10, batch_size, learning_rate, weight_decay, s_g_weight)
 		# Train on full dataset
-		print("Train subspace model " + str(self.final_model) + " on all " + str(
-			len(self.trace_list)) + " Trajectories")
+		logger.info(f"Train subspace model {str(self.final_model)} on all {str(
+			len(self.trace_list))} Trajectories")
 		train_dataset = FeatureLearningDataset(self.full_data_array)
 		train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
@@ -366,7 +375,7 @@ class LearnedFeature(object):
 
 		self.update_normalizer(self.final_model)
 
-		print("Final model trained!")
+		logger.info("Final model trained!")
 		return train_losses
 
 

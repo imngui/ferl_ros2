@@ -11,8 +11,8 @@ xr_ferl_node:
             feat_list: ["table"]
             feat_weights: [0.0]
             # start: [104.2, 137.5, 183.8, 101.8, 224.2, 126.1, 310.8] # must adhere to joint limits
-            start: [0.0, -1.5708, 0.0, -1.5708, 0.0, 0.0]
-            goal: [-1.5708, -1.5708, 0.0, -1.5708, 0.0, 0.0]
+            start: [4.5, 0.0, 0.0, 0.0, 1.5708, 0.0]
+            goal: [1.5, 0.0, 0.0, 0.0, 1.5708, 0.0]
             # goal_pose: None #[-0.46513, 0.29041, 0.69497]
             T: 20.0
             timestep: 0.5
@@ -35,15 +35,18 @@ xr_ferl_node:
                 - "rpy:False"
                 - "lowdim:False"
                 - "EErot:True"
+                # - "EErot:False"
                 - "noxyz:False"
                 - "norot:False"
+                # - "norot:True"
                 - "noangles:True"
                 - "6D_laptop:False"
                 - "6D_human:False"
                 - "9D_coffee:False"
+                - "subspace_heuristic:True"
             CONFIDENCE_THRESHOLD: 1.0
             # N_QUERIES: 10
-            N_QUERIES: 2
+            N_QUERIES: 20
             nb_layers: 3
             nb_units: 128
 

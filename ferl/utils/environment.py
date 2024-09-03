@@ -132,6 +132,10 @@ class Environment(object):
             coords = Tall[:,:3,3]
             orientations = Tall[:,:3,:3]
             object_coords = torch.from_numpy(object_coords)
+            # logger.info(f't waypt: {waypt.squeeze().shape}')
+            # logger.info(f't orien: {orientations.flatten().shape}')
+            # logger.info(f't coord: {coords.flatten().shape}')
+            # logger.info(f't ocoor: {object_coords.flatten().shape}')
             return torch.reshape(torch.cat((waypt.squeeze(), orientations.flatten(), coords.flatten(), object_coords.flatten())), (-1,))
         else:
             # if len(waypt) < 10:
@@ -143,7 +147,11 @@ class Environment(object):
             # self.robot.SetDOFValues(waypt_openrave)
             coords = np.array(robotToCartesian(self.robot))
             orientations = np.array(robotToOrientation(self.robot))
-            temp = np.reshape(np.concatenate((waypt.squeeze(), orientations.flatten(), coords.flatten(), object_coords.flatten())), (-1,))
+            # logger.info(f'waypt: {waypt.squeeze().shape}')
+            # logger.info(f'orien: {orientations.flatten().shape}')
+            # logger.info(f'coord: {coords.flatten().shape}')
+            # logger.info(f'ocoor: {object_coords.flatten().shape}')
+            # temp = np.reshape(np.concatenate((waypt.squeeze(), orientations.flatten(), coords.flatten(), object_coords.flatten())), (-1,))
             # logger.info(f'raw len: {temp.shape}')
             return np.reshape(np.concatenate((waypt.squeeze(), orientations.flatten(), coords.flatten(), object_coords.flatten())), (-1,))
 
@@ -187,88 +195,6 @@ class Environment(object):
             T_prev = T_curr
 
         return Tall
-
-
-    # def get_torch_transforms(self, waypt):
-    #     """
-    #     Computes torch transforms for given waypoint.
-    #     ---
-    #     Params:
-    #         waypt -- single waypoint
-    #     Returns:
-    #         Tall -- Transform in torch for every joint (7D)
-    #     """
-    #     # Manually compute a link transform given theta, alpha, and D (a is assumed to be 0).
-    #     def transform(theta, alpha, D):
-    #         T = torch.zeros([4, 4])
-    #         T[0][0] = torch.cos(theta)
-    #         T[0][1] = -torch.sin(theta)*torch.cos(alpha)
-    #         T[0][2] = torch.sin(theta)*torch.sin(alpha)
-    #         T[1][0] = torch.sin(theta)
-    #         T[1][1] = torch.cos(theta)*torch.cos(alpha)
-    #         T[1][2] = -torch.cos(theta)*torch.sin(alpha)
-    #         T[2][1] = torch.sin(alpha)
-    #         T[2][2] = torch.cos(alpha)
-    #         T[2][3] = D
-    #         T[3][3] = 1.0
-    #         return T
-
-    #     def swap_cols(T, i, j):
-    #         return torch.cat((T[:, :i], T[:, j:j+1], T[:, i+1:j], T[:, i:i+1], T[:, j+1:]), dim=1)
-
-    #     # These are robot measurements and DH parameters.
-    #     # Ds are link distances. es are some minor joint displacement errors.
-    #     # For each transform, we much be careful which D and/or e we pass in.
-    #     # The manual is sort of correct about how to do this but not 100% right.
-    #     # Contact abobu@berkeley.edu if you have questions about this code.
-    #     D = torch.tensor(np.array([(0.1564 + 0.1284), (0.0054 + 0.0064),
-    #                                (0.2104 + 0.2104), (0.0064 + 0.0064),
-    #                                (0.2084 + 0.1059), 0.0, (0.1059 + 0.0615)]), requires_grad=True)
-    #     alpha = torch.tensor(np.array([np.pi/2, np.pi/2, np.pi/2, np.pi/2, np.pi/2,  np.pi/2, np.pi]), requires_grad=True)
-    #     # sign1 = torch.tensor(np.array([[-1,1,-1,-1], [1,-1,1,1], [-1,1,-1,-1], [1,1,1,1]]), dtype=torch.float64, requires_grad=True)
-    #     # sign2 = torch.tensor(np.array([[1,-1,-1,-1], [-1,1,1,1], [1,-1,-1,-1], [1,1,1,1]]), dtype=torch.float64, requires_grad=True)
-    #     # sign3 = torch.tensor(np.array([[1,-1,1,-1], [-1,1,-1,1], [1,-1,1,-1], [1,1,1,1]]), dtype=torch.float64, requires_grad=True)
-
-    #     # Now construct the list of transforms for all joints.
-
-    #     # TODO check if this is correct, just taking DH parameters from the gen3 manual, don't know what signs are
-    #     # https://www.kinovarobotics.com/uploads/User-Guide-Gen3-R07.pdf
-
-    #     ### T01 transform from base to joint 1 ###
-    #     T01 = transform(waypt[0], alpha[0], -D[0]) # to frame 0 from base (TODO should this be multiplied? and should it be 0 or waypoint?)
-    #     Tall = (swap_cols(T01, 1, 2) * sign1).unsqueeze(0)
-
-    #     # T02 transform from base to joint 2 ###
-    #     T12 = transform(waypt[1] + np.pi, alpha[1], -D[1])
-    #     T02 = torch.matmul(T01, T12)
-    #     Tall = torch.cat((Tall, (swap_cols(T02, 1, 2) * sign2).unsqueeze(0)))
-
-    #     ### T03 transform from base to joint 3 ###
-    #     T23 = transform(waypt[2] + np.pi, alpha[2], -D[2])
-    #     T03 = torch.matmul(T02, T23)
-    #     Tall = torch.cat((Tall, (swap_cols(T03, 1, 2) * sign2).unsqueeze(0)))
-
-    #     ### T04 transform from base to joint 4 ###
-    #     T34 = transform(waypt[3] + np.pi, alpha[3], -D[3])
-    #     T04 = torch.matmul(T03, T34)
-    #     Tall = torch.cat((Tall, (swap_cols(T04, 1, 2) * sign1).unsqueeze(0)))
-
-    #     ### T05 transform from base to joint 5 ###
-    #     T45 = transform(waypt[4] + np.pi, alpha[4], -D[4])
-    #     T05 = torch.matmul(T04, T45)
-    #     Tall = torch.cat((Tall, (swap_cols(T05, 1, 2) * sign2).unsqueeze(0)))
-
-    #     ### T06 transform from base to joint 6 ###
-    #     T56 = transform(waypt[5] + np.pi, alpha[5], -D[5])
-    #     T06 = torch.matmul(T05, T56)
-    #     Tall = torch.cat((Tall, (swap_cols(T06, 1, 2) * sign1).unsqueeze(0)))
-
-    #     ### T07 transform from base to joint 7 ###
-    #     T67 = transform(waypt[6] + np.pi, alpha[6], -D[6])
-    #     T07 = torch.matmul(T06, T67)
-    #     Tall = torch.cat((Tall, (T07 * sign3).unsqueeze(0)))
-
-    #     return Tall
 
     # -- Instantiate a new learned feature -- #
 

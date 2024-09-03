@@ -134,13 +134,12 @@ def robotToCartesian(robot):
 	# links = ['shoulder_link', 'upper_arm_link', 'forearm_link', 'wrist_1_link', 'wrist_2_link', 'wrist_3_link']
 	# logger.info(f'num links: {len(links)}')
 	links = getLinks(robot)
-	cartesian = [None]*(robot.GetActiveDOF()-1)
+	cartesian = [None]*(robot.GetActiveDOF())
 	i = 0
-	for i in range(1,robot.GetActiveDOF()):
+	for i in range(0,robot.GetActiveDOF()):
 		link = links[i]
 		tf = link.GetTransform()
-		cartesian[i-1] = tf[0:3,3]
-
+		cartesian[i] = tf[0:3,3]
 	return cartesian
 
 def robotToOrientation(robot):
@@ -152,12 +151,12 @@ def robotToOrientation(robot):
 	"""
 	# links = robot.GetLinks()
 	links = getLinks(robot)
-	orientation = [None]*(robot.GetActiveDOF()-1)
+	orientation = [None]*(robot.GetActiveDOF())
 	i = 0
-	for i in range(1,robot.GetActiveDOF()):
+	for i in range(0 ,robot.GetActiveDOF()):
 		link = links[i]
 		tf = link.GetTransform()
-		orientation[i-1] = tf[:3,:3]
+		orientation[i] = tf[:3,:3]
 
 	return orientation
 

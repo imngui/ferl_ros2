@@ -4,6 +4,9 @@ import math
 from scipy.optimize import minimize, newton, BFGS, NonlinearConstraint, Bounds, SR1, differential_evolution
 from scipy.stats import chi2
 
+from rclpy.impl import rcutils_logger
+logger = rcutils_logger.RcutilsLogger(name="phri_learner")
+
 class PHRILearner(object):
     """
     This class performs correction inference given a trajectory and an input
@@ -85,18 +88,18 @@ class PHRILearner(object):
             waypts_deform_p = traj.deform(u_h_star, t, self.alpha, self.n).waypts
             H_features = self.environment.featurize(waypts_deform_p)
             Phi_u_star = np.array([sum(x) for x in H_features])
-            print("Phi_p: ", Phi_p[i])
-            print("Phi_p_H: ", Phi_u_star)
+            logger.info(f"Phi_p: {Phi_p[i]}")
+            logger.info(f"Phi_p_H: {Phi_u_star}")
 
-            print("u_h: ", u_h, np.linalg.norm(u_h))
-            print("u_h_star: ", u_h_star, np.linalg.norm(u_h_star))
+            logger.info(f"u_h: {u_h, np.linalg.norm(u_h)}")
+            logger.info(f"u_h_star: {u_h_star, np.linalg.norm(u_h_star)}")
 
             # Compute beta based on deviation from optimal action.
             beta_norm = 1.0 / np.linalg.norm(u_h_star) ** 2
             beta = self.environment.num_features / (2 * beta_norm * abs(np.linalg.norm(u_h)**2 - np.linalg.norm(u_h_star)**2))
             betas.append(beta)
 
-        print("Here is beta:", betas)
+        logger.info(f"Here is beta: {betas}")
         return betas
 
     def learn_weights(self, traj, u_h, t, betas):
@@ -131,9 +134,9 @@ class PHRILearner(object):
         else:
             raise Exception('Learning method {} not implemented.'.format(self.feat_method))
 
-        print("Here is the update:", update)
-        print("Here are the old weights:", self.environment.weights)
-        print("Here are the new weights:", curr_weight)
+        logger.info(f"Here is the update: {update}")
+        logger.info(f"Here are the old weights: {self.environment.weights}")
+        logger.info(f"Here are the new weights: {curr_weight}")
         self.environment.weights = np.maximum(curr_weight, np.zeros(curr_weight.shape))
 
     def all_update(self, update):
@@ -192,6 +195,6 @@ class PHRILearner(object):
             denom = p_r0 * (l/math.pi) ** (self.environment.num_features/2.0) * np.exp(-l*update[i]**2) + num
             confidence[i] = num/denom
 
-        print("Here is weighted beta:", confidence)
+        logger.info(f"Here is weighted beta: {confidence}")
         weights = self.environment.weights - np.array(confidence) * self.step_size * update
         return weights
