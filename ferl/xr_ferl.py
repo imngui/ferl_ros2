@@ -492,6 +492,20 @@ class XRFerl(Node):
                                 # Provide optional start and end labels.
                                 start_label = 0.0
                                 end_label = 1.0
+
+                                traj = Trajectory(traj_data, np.linspace(0.0, self.T, len(traj_data)))
+                                
+                                # Downsample/Upsample trajectory to fit desired timestep and T.
+                                num_waypts = int(self.T / self.timestep) + 1
+                                if num_waypts < len(traj.waypts):
+                                    demo = traj.downsample(int(self.T / self.timestep) + 1)
+                                else:
+                                    demo = traj.upsample(int(self.T / self.timestep) + 1)
+
+                                # Decide whether to save trajectory
+                                openrave_utils.plotTraj(self.environment.env, self.environment.robot,
+                                                        self.environment.bodies, demo.waypts, size=0.015, color=[0, 0, 1])
+
                                 # self.get_logger().info("Would you like to label your start? Press ENTER if not or enter a number from 0-10")
                                 # line = sys.stdin.readline()
                                 # if line in [str(i) for i in range(11)]:
