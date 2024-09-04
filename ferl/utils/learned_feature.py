@@ -58,6 +58,8 @@ class LearnedFeature(object):
 			if self.LF_dict['subspace_heuristic']:
 				for sub_range in self.subspaces_list:
 					self.models.append(DNN(nb_layers, nb_units, sub_range[1] - sub_range[0]))
+			else:
+					self.models.append(DNN(nb_layers, nb_units, self.subspaces_list[-1][1]))
 		else:
 			self.models.append(DNN(nb_layers, nb_units, self.subspaces_list[-1][1]))
 

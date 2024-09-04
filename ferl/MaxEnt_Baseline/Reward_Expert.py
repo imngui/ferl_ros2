@@ -88,13 +88,13 @@ class GT_Reward_Expert:
 		goals = []
 		while len(trajs) < n_trajs:
 			# sample
-			start_sample = np.random.uniform(low=0, high=2 * math.pi, size=7)
-			goal_sample = np.random.uniform(low=0, high=2 * math.pi, size=7)
+			start_sample = np.random.uniform(low=0, high=2 * math.pi, size=6)
+			goal_sample = np.random.uniform(low=0, high=2 * math.pi, size=6)
 			# plan
 			opt_traj = self.planner.replan(start_sample, goal_sample, None, self.T, self.timestep, seed=None)
 			# get raw and x,y,z of start and end of the trajectory
 			raw = map_to_raw_dim(self.env, [opt_traj.waypts])
-			distance = np.linalg.norm(raw[0][0][88:91] - raw[0][-1][88:91])
+			distance = np.linalg.norm(raw[0][0][75:78] - raw[0][-1][75:78])
 			if distance > min_dist:
 				trajs.append(raw[0])
 				starts.append(start_sample)

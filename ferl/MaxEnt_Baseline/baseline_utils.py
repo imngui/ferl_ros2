@@ -133,7 +133,7 @@ def init_env(feat_list, weights, env_only=False,
 	max_iter = 50
 	num_waypts = 5
 
-	environment = Environment(model_filename, object_centers, feat_list, feat_range, np.array(weights), viewer=False)
+	environment = Environment(model_filename, np.array([0.0, -1.5708, 0, -1.5708, 0, 0]), object_centers, feat_list, feat_range, np.array(weights), viewer=False)
 	if env_only:
 		return environment
 	else:
@@ -206,7 +206,8 @@ def plot_IRL_comparison(IRL):
 	for s_g_trajs in IRL.s_g_exp_trajs:
 		traj = s_g_trajs[0]
 		labels = IRL.function(traj)
-		euclidean = traj[:, 88:91]
+		euclidean = traj[:, 75:78]
+		# euclidean = traj[:, 88:91]
 		to_plot = np.vstack((to_plot, np.hstack((euclidean, labels))))
 	df = pd.DataFrame(to_plot)
 	fig = go.Figure(data=go.Scatter3d(x=df.iloc[:, 0], y=df.iloc[:, 1], z=df.iloc[:, 2], mode='markers',
@@ -257,8 +258,10 @@ def plot_trajs(demos, object_centers, title='some_title', func=None):
 		if func is not None:
 			labels = func(traj)
 		else:
-			labels = traj[:, 90].reshape((-1, 1))
-		euclidean = traj[:, 88:91]
+			# labels = traj[:, 90].reshape((-1, 1))
+			labels = traj[:, 77].reshape((-1, 1))
+		# euclidean = traj[:, 88:91]
+		euclidean = traj[:, 75:78]
 		points = np.vstack((points, np.hstack((euclidean, labels))))
 	df = pd.DataFrame(points)
 	fig = go.Figure(data=go.Scatter3d(x=df.iloc[:, 0], y=df.iloc[:, 1], z=df.iloc[:, 2], mode='markers',
@@ -319,7 +322,8 @@ class TorchFeatureTransform(object):
 		Input: 97D raw torch Tensor
 		Output: torch scalar
 		"""
-		return high_dim_waypt[:, 90] / self.feat_range[self.feature_list.index("table")]
+		# return high_dim_waypt[:, 90] / self.feat_range[self.feature_list.index("table")]
+		return high_dim_waypt[:, 77] / self.feat_range[self.feature_list.index("table")]
 
 	def coffee_features(self, high_dim_waypt):
 		"""

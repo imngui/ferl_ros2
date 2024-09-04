@@ -32,6 +32,7 @@ def initialize(model_filename='ur5e', robot_starting_dofs=np.array([0.0, -1.5708
 	AND WANT MULTPILE INSTANCES TO OPEN, THEN HAVE TO TURN OFF
 	QTCOIN AND ALL VIEWER FUNCTIONALITY OR IT WILL CRASH.
 	'''
+	# print('starting dofs : ', robot_starting_dofs)
 	env = openravepy.Environment()
 	if envXML is not None:
 		env.LoadURI(envXML)
@@ -58,6 +59,7 @@ def initialize(model_filename='ur5e', robot_starting_dofs=np.array([0.0, -1.5708
 	robot.SetActiveManipulator('arm')
 	manip = robot.GetManipulator('arm')
 	active_dofs = manip.GetArmIndices()
+	# print('active dofs: ', active_dofs)
  
 	# print(dir(robot))
 	# print(manip.GetArmJoints())

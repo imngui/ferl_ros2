@@ -15,16 +15,16 @@ def angles_to_coords(data, feat, env):
 	coords_list = np.empty((0, 3), float)
 	for i in range(data.shape[0]):
 		waypt = data[i]
-		if len(waypt) < 10:
-			waypt = np.append(waypt.reshape(6), np.array([0,0,0]))
-			waypt[2] += math.pi
-		env.robot.SetDOFValues(waypt)
+		# if len(waypt) < 10:
+		# 	waypt = np.append(waypt.reshape(6), np.array([0,0,0]))
+		# 	waypt[2] += math.pi
+		env.robot.SetActiveDOFValues(waypt)
 		if feat == "coffee":
 			EE_link = env.robot.GetLink('tool0')
 			coords_list = np.vstack((coords_list, EE_link.GetTransform()[:3,0]))
 		else:
 			coords = robotToCartesian(env.robot)
-			coords_list = np.vstack((coords_list, coords[6]))
+			coords_list = np.vstack((coords_list, coords[-1]))
 	return coords_list
 
 
@@ -34,7 +34,7 @@ def plot_gt3D_one_feat(parent_dir, feat, env):
     """
     data_file = parent_dir + '/data/gtdata/data_{}.npz'.format(feat)
     npzfile = np.load(data_file)
-    train = npzfile['x'][:,:7]
+    train = npzfile['x'][:,:6]
     labels = npzfile['y']
     labels = labels.reshape(len(labels), 1)
     euclidean = angles_to_coords(train, feat, env)
@@ -96,8 +96,10 @@ def plot_learned_traj(feature_function, train_data, env, feat='table'):
 		Plot the traces labled with the function values of feature_function.
 	"""
 	output = feature_function(train_data)
-	euclidean = angles_to_coords(train_data[:, :7], feat, env)
-	fig = px.scatter_3d(x=euclidean[:,0], y=euclidean[:,1], z=euclidean[:,2], color=output)
+	# print("output: ", output.shape)
+	euclidean = angles_to_coords(train_data[:, :6], feat, env)
+	# print("euclidean: (", euclidean[:,0].shape, ", ", euclidean[:,1].shape, ", ", euclidean[:,2].shape, ")")
+	fig = px.scatter_3d(x=euclidean[:,0], y=euclidean[:,1], z=euclidean[:,2], color=output.squeeze())
 	fig.update_layout(title='Traces with learned function values')
 	fig.show()
 
@@ -108,12 +110,12 @@ def plot_learned3D(parent_dir, feature_function, env, feat='table', title='Learn
 	"""
 	data_file = parent_dir + '/data/gtdata/data_{}.npz'.format(feat)
 	npzfile = np.load(data_file)
-	train = npzfile['x'][:,:7]
+	train = npzfile['x'][:,:6]
 	train_raw = np.empty((0, 97), float)
 	for dp in train:
 		train_raw = np.vstack((train_raw, env.raw_features(dp)))
 	labels = feature_function(train_raw)
 	euclidean = angles_to_coords(train, feat, env)
-	fig = px.scatter_3d(x=euclidean[:, 0], y=euclidean[:, 1], z=euclidean[:, 2], color=labels)
+	fig = px.scatter_3d(x=euclidean[:, 0], y=euclidean[:, 1], z=euclidean[:, 2], color=labels.squeeze)
 	fig.update_layout(title=title)
 	fig.show()
