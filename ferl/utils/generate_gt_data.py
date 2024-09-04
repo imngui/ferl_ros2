@@ -1,8 +1,8 @@
 import numpy as np
 import math
 from openrave_utils import *
-from utils.environment import Environment
-from planners.trajopt_planner import TrajoptPlanner
+from ferl.utils.environment import Environment
+from ferl.planners.trajopt_planner import TrajoptPlanner
 import torch
 import os, sys
 
@@ -233,7 +233,7 @@ def generate_gt_data(feature):
     print("Finished environment")
     # create Learned_Feature
     # TODO: figure out how to get nb_layers and nb_units
-    environment.new_learned_feature(nb_layers, nb_units)
+    environment.new_learned_feature(3, 128)
     print("Generating data...")
     # generate training data
     if feature == "laptopmoving":

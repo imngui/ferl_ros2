@@ -48,7 +48,7 @@ def plot_gt3D(parent_dir, env, title='GT Cost Value over 3D Reachable Set'):
 		Plot the ground truth 3D Half-Sphere for the environment.
 	"""
 	raw_waypts, gt_cost = get_coords_gt_cost(env, parent_dir)
-	fig = px.scatter_3d(x=raw_waypts[:,88], y=raw_waypts[:,89], z=raw_waypts[:,90], color=gt_cost)
+	fig = px.scatter_3d(x=raw_waypts[:,75], y=raw_waypts[:,76], z=raw_waypts[:,77], color=gt_cost)
 	fig.update_layout(title=title)
 	fig.show()
 
@@ -65,7 +65,7 @@ def get_coords_gt_cost(expert_env, parent_dir, gen=False, n_waypoints=10000):
 	"""
 	# Step 1: Generate ground truth data, sampling uniformly from 7D angle space
 	if gen == True:
-		waypts = np.random.uniform(size=(n_waypoints, 7), low=0, high=np.pi*2)
+		waypts = np.random.uniform(size=(n_waypoints, 6), low=0, high=np.pi*2)
 		# Transform to 97D
 		raw_waypts = []
 		for waypt in waypts:
@@ -83,7 +83,7 @@ def get_coords_gt_cost(expert_env, parent_dir, gen=False, n_waypoints=10000):
 	features = [[0.0 for _ in range(len(raw_waypts))] for _ in range(0, len(expert_env.feature_list))]
 	for index in range(len(raw_waypts)):
 		for feat in range(len(feat_idx)):
-			features[feat][index] = expert_env.featurize_single(raw_waypts[index,:7], feat_idx[feat])
+			features[feat][index] = expert_env.featurize_single(raw_waypts[index,:6], feat_idx[feat])
 
 	features = np.array(features).T
 	gt_cost = np.matmul(features, np.array(expert_env.weights).reshape(-1,1))
@@ -111,11 +111,11 @@ def plot_learned3D(parent_dir, feature_function, env, feat='table', title='Learn
 	data_file = parent_dir + '/data/gtdata/data_{}.npz'.format(feat)
 	npzfile = np.load(data_file)
 	train = npzfile['x'][:,:6]
-	train_raw = np.empty((0, 97), float)
+	train_raw = np.empty((0, 84), float)
 	for dp in train:
 		train_raw = np.vstack((train_raw, env.raw_features(dp)))
 	labels = feature_function(train_raw)
 	euclidean = angles_to_coords(train, feat, env)
-	fig = px.scatter_3d(x=euclidean[:, 0], y=euclidean[:, 1], z=euclidean[:, 2], color=labels.squeeze)
+	fig = px.scatter_3d(x=euclidean[:, 0], y=euclidean[:, 1], z=euclidean[:, 2], color=labels.squeeze())
 	fig.update_layout(title=title)
 	fig.show()
