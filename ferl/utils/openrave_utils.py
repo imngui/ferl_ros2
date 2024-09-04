@@ -42,7 +42,7 @@ def initialize(model_filename='ur5e', robot_starting_dofs=np.array([0.0, -1.5708
 	urdf_uri = os.path.join(get_package_share_directory('ur5e_2f_85_description'), 'urdf', 'ur5e_2f_85.urdf')
 	srdf_uri = os.path.join(get_package_share_directory('ur5e_2f_85_moveit_config'), 'config', 'ur5e_2f_85.srdf')
 	# urdf_uri = os.path.join(get_package_share_directory('ur_description'), 'urdf', 'ur5e.urdf')
-	# srdf_uri = os.path.join(get_package_share_directory('ur_moveit_config'), 'config', 'ur5e.srdf')
+	# srdf_uri = os.path.join(get_package_share_directory('ur_moveit_config'), 'srdf', 'ur5e.srdf')
 	
 
 	found = RaveLoadPlugin(os.path.join(get_package_prefix('or_urdf'), 'lib', 'openrave-', 'or_urdf_plugin.so'))

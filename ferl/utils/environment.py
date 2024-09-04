@@ -484,7 +484,7 @@ class Environment(object):
         """
         # TODO Convert to num_dofs dim
         # pos = np.array([curr_pos[0][0],curr_pos[1][0],curr_pos[2][0]+math.pi,curr_pos[3][0],curr_pos[4][0],curr_pos[5][0],curr_pos[6][0],0,0,0])
-        pos = np.array([curr_pos[0][0],curr_pos[1][0],curr_pos[2][0]+math.pi,curr_pos[3][0],curr_pos[4][0],curr_pos[5][0]])
+        pos = np.array([curr_pos[0],curr_pos[1],curr_pos[2],curr_pos[3],curr_pos[4],curr_pos[5]])
 
         # self.robot.SetDOFValues(pos)
         self.robot.SetActiveDOFValues(pos)
