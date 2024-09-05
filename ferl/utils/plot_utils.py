@@ -48,7 +48,7 @@ def plot_gt3D(parent_dir, env, title='GT Cost Value over 3D Reachable Set'):
 		Plot the ground truth 3D Half-Sphere for the environment.
 	"""
 	raw_waypts, gt_cost = get_coords_gt_cost(env, parent_dir)
-	fig = px.scatter_3d(x=raw_waypts[:,75], y=raw_waypts[:,76], z=raw_waypts[:,77], color=gt_cost)
+	fig = px.scatter_3d(x=raw_waypts[:,75], y=raw_waypts[:,76], z=raw_waypts[:,77], color=gt_cost.squeeze())
 	fig.update_layout(title=title)
 	fig.show()
 

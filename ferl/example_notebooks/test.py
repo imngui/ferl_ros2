@@ -26,7 +26,7 @@ known_features_cases = [["coffee", "table"], ["coffee", "laptop"], ["coffee", "t
 known_weights = [0., 0.]
 
 # traces_file_cases = ["laptop", "table", "proxemics"]
-traces_file_cases = ["table"]
+traces_file_cases = ["laptop"]
 traces_idx = np.arange(10).tolist()
 
 # learned weights from pushes
@@ -38,7 +38,7 @@ learned_weights_from_pushes_cases = [p1, p2, p3]
 
 # some settings for TrajOpt
 FEAT_RANGE = {'table':0.98, 'coffee':1.0, 'laptop':0.3, 'human':0.3, 'efficiency':0.22, 'proxemics': 0.3, 'betweenobjects': 0.2, 'learned_feature':1.0}
-obj_center_dict = {'HUMAN_CENTER': [-0.2, -0.5, 0.6], 'LAPTOP_CENTER': [-0.8, 0.0, 0.0]}
+obj_center_dict = {'HUMAN_CENTER': [-0.2, -0.5, 0.6], 'LAPTOP_CENTER': [-0.5, 0.0, 0.0]}
 T = 20.0
 timestep=0.5
 
@@ -71,7 +71,9 @@ unknown_feature = LearnedFeature(3, 128, LF_dict)
 
 # for data_file in glob.glob(parent_dir + '/data/FERL_traces/traces_{}.p'.format(traces_file_cases[case-1])):
 trajectory_list = []
-for data_file in glob.glob(parent_dir + '/data/demonstrations/demo_0_table.p'):
+# for data_file in glob.glob(parent_dir + '/data/demonstrations/demo_0_laptop.p'):
+for data_file in glob.glob(parent_dir + '/data/demonstrations/demo_1_laptop.p'):
+# for data_file in glob.glob(parent_dir + '/data/demonstrations/demo_0_table.p'):
 # for data_file in glob.glob(parent_dir + '/data/demonstrations/demo_1_table.p'):
     trajectory_list = pickle.load(open( data_file, "rb" ))
 
