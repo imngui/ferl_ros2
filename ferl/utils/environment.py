@@ -11,6 +11,7 @@ from ferl.utils.learned_feature import LearnedFeature
 from rclpy.impl import rcutils_logger
 logger = rcutils_logger.RcutilsLogger(name="env")
 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # TODO ! Figure out EE_Link stuff
 
@@ -128,7 +129,7 @@ class Environment(object):
         """
         object_coords = np.array([self.object_centers[x] for x in self.object_centers.keys()])
         if torch.is_tensor(waypt):
-            Tall = self.get_torch_transforms(waypt)
+            Tall = self.get_torch_transforms(waypt.to(device))
             coords = Tall[:,:3,3]
             orientations = Tall[:,:3,:3]
             object_coords = torch.from_numpy(object_coords)
@@ -180,11 +181,11 @@ class Environment(object):
             return T
 
         # DH parameters for UR5e as given in the image
-        a = torch.tensor([0, -0.425, -0.3922, 0, 0.0, 0], requires_grad=True)
-        d = torch.tensor([0.1625, 0, 0, 0.1333, 0.0997, 0.0996], requires_grad=True)
-        alpha = torch.tensor([torch.pi/2, 0, 0, torch.pi/2, -torch.pi/2, 0], requires_grad=True)
+        a = torch.tensor([0, -0.425, -0.3922, 0, 0.0, 0], requires_grad=True).to(device)
+        d = torch.tensor([0.1625, 0, 0, 0.1333, 0.0997, 0.0996], requires_grad=True).to(device)
+        alpha = torch.tensor([torch.pi/2, 0, 0, torch.pi/2, -torch.pi/2, 0], requires_grad=True).to(device)
 
-        Tall = torch.eye(4).unsqueeze(0)  # Start with identity matrix for the base frame
+        Tall = torch.eye(4).unsqueeze(0).to(device)  # Start with identity matrix for the base frame
 
         T_prev = Tall[0]
 
@@ -325,6 +326,7 @@ class Environment(object):
         # EE_coord_xy = coords[6][0:2]
         EE_coord_xy = coords[-1][0:2]
         laptop_xy = np.array(self.object_centers['LAPTOP_CENTER'][0:2])
+        logger.info(f'ee: {EE_coord_xy}, laptop: {laptop_xy}')
         dist = np.linalg.norm(EE_coord_xy - laptop_xy) - 0.3
         if dist > 0:
             return 0
@@ -443,7 +445,8 @@ class Environment(object):
         # EE_link = self.robot.GetLinks()[8]
         EE_link = self.robot.GetLink('tool0')
         EE_coord_z = EE_link.GetTransform()[2][3]
-        if EE_coord_z > -0.1016:
+        # if EE_coord_z > -0.1016:
+        if EE_coord_z > 0:
             return 0
         return 10000
 

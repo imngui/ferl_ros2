@@ -33,6 +33,9 @@ traces_idx = np.arange(10).tolist()
 p1 = [0.0, 4.03901256, 5.51417794]
 p2 = [0.0, 4.35964768, 4.88110989]
 p3 = [0.0, 3.09983027, 5.1572305 ]
+# p1 = [0.0, 0.0, 0.0]
+# p2 = [0.0, 0.0, 0.0]
+# p3 = [0.0, 0.0, 0.0]
 
 learned_weights_from_pushes_cases = [p1, p2, p3]
 
@@ -46,8 +49,8 @@ timestep=0.5
 # LF_dict = {'bet_data':5, 'sin':False, 'cos':False, 'rpy':False, 'lowdim':False, 'norot':True,
 #            'noangles':True, '6D_laptop':False, '6D_human':False, '9D_coffee':False, 'EErot':False,
 #            'noxyz':False, 'subspace_heuristic':False}
-LF_dict = {'bet_data':5, 'sin':False, 'cos':False, 'rpy':False, 'lowdim':False, 'norot':False,
-           'noangles':True, '6D_laptop':False, '6D_human':False, '9D_coffee':False, 'EErot':True,
+LF_dict = {'bet_data':5, 'sin':False, 'cos':False, 'rpy':False, 'lowdim':False, 'norot':True,
+           'noangles':True, '6D_laptop':False, '6D_human':False, '9D_coffee':False, 'EErot':False,
            'noxyz':False, 'subspace_heuristic':False}
 
 # %% [markdown]
@@ -64,18 +67,31 @@ gt_feat_range = [FEAT_RANGE[feat_list_cases[case-1][feat]] for feat in range(len
 # %%
 # Step 0: Create environment with known feature & initialize learned feature
 env = Environment("gen3", np.array([0.0, -1.5708, 0, -1.5708, 0, 0]), obj_center_dict, known_features_cases[case-1],
-                  feat_range, known_weights, viewer=False)
+                    feat_range, known_weights, viewer=False)
 
 # Step 1: load feature traces & initialize a learnable feature
 unknown_feature = LearnedFeature(3, 128, LF_dict)
 
 # for data_file in glob.glob(parent_dir + '/data/FERL_traces/traces_{}.p'.format(traces_file_cases[case-1])):
 trajectory_list = []
-# for data_file in glob.glob(parent_dir + '/data/demonstrations/demo_0_laptop.p'):
-for data_file in glob.glob(parent_dir + '/data/demonstrations/demo_1_laptop.p'):
-# for data_file in glob.glob(parent_dir + '/data/demonstrations/demo_0_table.p'):
-# for data_file in glob.glob(parent_dir + '/data/demonstrations/demo_1_table.p'):
+for data_file in glob.glob(parent_dir + '/data/demonstrations/demo_5_laptop.p'):
+    # trajectory_list.extend(pickle.load(open( data_file, "rb" )))
     trajectory_list = pickle.load(open( data_file, "rb" ))
+
+# for data_file in glob.glob(parent_dir + '/data/demonstrations/demo_0_table.p'):
+#     trajectory_list.extend(pickle.load(open( data_file, "rb" )))
+
+# for data_file in glob.glob(parent_dir + '/data/demonstrations/demo_1_table.p'):
+#     trajectory_list.extend(pickle.load(open( data_file, "rb" )))
+
+# for data_file in glob.glob(parent_dir + '/data/demonstrations/demo_0_laptop.p'):
+#     trajectory_list.extend(pickle.load(open( data_file, "rb" )))
+
+# for data_file in glob.glob(parent_dir + '/data/demonstrations/demo_1_laptop.p'):
+#     trajectory_list.extend(pickle.load(open( data_file, "rb" )))
+
+# for data_file in glob.glob(parent_dir + '/data/demonstrations/demo_2_laptop.p'):
+#     trajectory_list.extend(pickle.load(open( data_file, "rb" )))
 
 all_trace_data = np.empty((0, 84), float)
 for idx in traces_idx:

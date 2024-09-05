@@ -466,8 +466,8 @@ class XRFerl(Node):
                                 # self.feature_data = self.traj_to_raw(traj_data)
 
                                 traj_data = ros2_utils.traj_msg_to_data(msg, self.joint_names)
-                                for pnt in traj_data:
-                                    self.get_logger().info(f'pos: {pnt}')
+                                # for pnt in traj_data:
+                                #     self.get_logger().info(f'pos: {pnt}')
                                 self.feature_data = self.traj_data_to_raw(traj_data)
                                 
                                 # Pre-process the recorded data before training.
@@ -492,6 +492,8 @@ class XRFerl(Node):
                                 # Provide optional start and end labels.
                                 start_label = 0.0
                                 end_label = 1.0
+                                # start_label = 1.0
+                                # end_label = 0.0
 
                                 traj = Trajectory(traj_data, np.linspace(0.0, self.T, len(traj_data)))
                                 
@@ -523,7 +525,7 @@ class XRFerl(Node):
                                 self.get_logger().info("Failed to get feature trace. Retrying...")
                                 self.publish_user_info("Failed to get feature trace. Retrying...")
 
-                        filename = "demo_1_laptop.p"
+                        filename = "demo_5_laptop.p"
                         savefile = os.path.join(get_package_share_directory('ferl'), 'data', 'demonstrations', filename)
                         with open(savefile, "wb") as f:
                             pickle.dump(self.environment.learned_features[-1].trace_list, f)
@@ -560,6 +562,8 @@ class XRFerl(Node):
                 self.publish_user_info("Learning weights")
                 for i in range(len(self.interaction_data)):
                     self.learner.learn_weights(self.traj, self.interaction_data[i], self.interaction_time[i], betas)
+
+                self.get_logger().info(f'weights: {self.environment.weights}')
 
                 self.get_logger().info('Generating new trajectory')
                 self.publish_user_info("Generating new trajectory")
@@ -608,6 +612,7 @@ class XRFerl(Node):
         # When no in feature learning stage, update position.
         self.curr_pos = curr_pos
         self.curr_vel = np.roll(np.array(msg.velocity),1).reshape(self.num_dofs,1)
+        self.environment.update_curr_pos(curr_pos)
 
         # Update cmd from PID based on current position.
         self.cmd = self.controller.get_command(self.curr_pos, self.curr_vel)

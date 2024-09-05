@@ -12,7 +12,7 @@ from torch.utils.data import Dataset, DataLoader
 from rclpy.impl import rcutils_logger
 logger = rcutils_logger.RcutilsLogger(name="learn_feat")
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 class LearnedFeature(object):
@@ -92,7 +92,7 @@ class LearnedFeature(object):
 		# logger.info(f'learned_feat: {x.shape}')
 
 		# Transform the input
-		x = transform_input(x, self.LF_dict)
+		x = transform_input(x.detach().cpu(), self.LF_dict)
 		# logger.info(f'learned_feat transform: {x.shape}')
 		x = x.to(device)
 
@@ -107,7 +107,7 @@ class LearnedFeature(object):
 			if torchify:
 				return y
 			else:
-				return np.array(y.detach())
+				return np.array(y.detach().cpu())
 		else:
 			return y
 
@@ -252,7 +252,7 @@ class LearnedFeature(object):
 					avg_in_loss = []
 					for batch in train_loader:
 						optimizers[i].zero_grad()
-						loss = self.FERL_loss(batch, model_idx=i, s_g_weight=s_g_weight)
+						loss = self.FERL_loss(batch.to(device), model_idx=i, s_g_weight=s_g_weight)
 						loss.backward()
 						optimizers[i].step()
 						avg_in_loss.append(loss.item())
@@ -264,7 +264,7 @@ class LearnedFeature(object):
 				for i, model in enumerate(self.models):
 					avg_in_loss = []
 					for batch in test_loader:
-						loss = self.FERL_loss(batch, model_idx=i, s_g_weight=s_g_weight)
+						loss = self.FERL_loss(batch.to(device), model_idx=i, s_g_weight=s_g_weight)
 						avg_in_loss.append(loss.item())
 						# logger.info(f'avg_in_loss: {avg_in_loss}')
 					# log over training
@@ -295,8 +295,8 @@ class LearnedFeature(object):
 		"""
 		s_0s_array = np.array([tup[0] for tup in self.full_data_array]).squeeze()
 		s_1s_array = np.array([tup[1] for tup in self.full_data_array]).squeeze()
-		s0_logits = self.function(s_0s_array, model=model_idx).view(-1).detach()
-		s1_logits = self.function(s_1s_array, model=model_idx).view(-1).detach()
+		s0_logits = self.function(s_0s_array, model=model_idx).view(-1).detach().cpu()
+		s1_logits = self.function(s_1s_array, model=model_idx).view(-1).detach().cpu()
 		all_logits = np.vstack((s0_logits, s1_logits))
 		self.max_labels[model_idx] = np.amax(all_logits)
 		self.min_labels[model_idx] = np.amin(all_logits)

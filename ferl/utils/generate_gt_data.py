@@ -224,12 +224,16 @@ def betweenobjects_features(environment, waypt):
 
 def generate_gt_data(feature):
 	# create environment instance
+    LF_dict = {'bet_data':5, 'sin':False, 'cos':False, 'rpy':False, 'lowdim':False, 'norot':True,
+           'noangles':True, '6D_laptop':False, '6D_human':False, '9D_coffee':False, 'EErot':False,
+           'noxyz':False, 'subspace_heuristic':False}
+
     print("Creating environment")
     if feature == "between_objects":
         objects = {'OBJECT1': [-0.6,-0.2,0.0], 'OBJECT2': [-0.2,0.0,0.0]}
     else:
         objects = {'HUMAN_CENTER': [-0.2,-0.5,0.6], 'LAPTOP_CENTER': [-0.5, 0.0, 0.0]}
-    environment = Environment("jaco_dynamics", objects, [feature], [1.0], np.array([0.0]), viewer=False)
+    environment = Environment("jaco_dynamics", np.array([0.0, -1.5708, 0, -1.5708, 0, 0]), objects, [feature], [1.0], np.array([0.0]), LF_dict, viewer=False)
     print("Finished environment")
     # create Learned_Feature
     # TODO: figure out how to get nb_layers and nb_units
@@ -249,7 +253,7 @@ def generate_gt_data(feature):
             environment.object_centers["LAPTOP_CENTER"] = positions[lidx]
             train, labels = sample_data(environment, "laptop")
             # Create raw features
-            train_raw = np.empty((0, 97), float)
+            train_raw = np.empty((0, 84), float)
             for dp in train:
                 train_raw = np.vstack((train_raw, environment.raw_features(dp)))
             here = os.path.abspath(os.path.join(os.path.dirname( __file__ ), '../../'))
@@ -257,7 +261,7 @@ def generate_gt_data(feature):
     else:
         train, labels = sample_data(environment, feature)
         # Create raw features
-        train_raw = np.empty((0, 97), float)
+        train_raw = np.empty((0, 84), float)
         for dp in train:
             train_raw = np.vstack((train_raw, environment.raw_features(dp)))
         here = os.path.abspath(os.path.join(os.path.dirname( __file__ ), '../../'))

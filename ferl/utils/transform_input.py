@@ -28,11 +28,11 @@ def transform_input(x, trans_dict):
 
 	# TODO: Figure out these dict ranges
 	if trans_dict['6D_laptop']:
-		return torch.cat((x[:, 88:91], x[:, 94:97]), dim=1)
+		return torch.cat((x[:, 75:78], x[:, 78:81]), dim=1)
 	if trans_dict['6D_human']:
-		return torch.cat((x[:, 88:91], x[:, 91:94]), dim=1)
+		return torch.cat((x[:, 75:78], x[:, 78:81]), dim=1)
 	if trans_dict['9D_coffee']:
-		return x[:, 61:70]
+		return x[:, 51:60]
 
 	x_transform = torch.empty((x.shape[0], 0), requires_grad=True, dtype=torch.float32)
 

@@ -98,6 +98,7 @@ def plot_learned_traj(feature_function, train_data, env, feat='table'):
 	output = feature_function(train_data)
 	# print("output: ", output.shape)
 	euclidean = angles_to_coords(train_data[:, :6], feat, env)
+	print(euclidean[:,0].shape)
 	# print("euclidean: (", euclidean[:,0].shape, ", ", euclidean[:,1].shape, ", ", euclidean[:,2].shape, ")")
 	fig = px.scatter_3d(x=euclidean[:,0], y=euclidean[:,1], z=euclidean[:,2], color=output.squeeze())
 	fig.update_layout(title='Traces with learned function values')
