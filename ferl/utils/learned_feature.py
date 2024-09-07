@@ -46,6 +46,7 @@ class LearnedFeature(object):
 		self.start_labels = []
 		self.end_labels = []
 		self.subspaces_list = get_subranges(LF_dict)
+		print("subspaces", self.subspaces_list)
 		self.max_labels = [1 for _ in range(len(self.subspaces_list))]
 		self.min_labels = [0 for _ in range(len(self.subspaces_list))]
 		self.LF_dict = LF_dict

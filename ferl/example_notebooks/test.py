@@ -26,7 +26,7 @@ known_features_cases = [["coffee", "table"], ["coffee", "laptop"], ["coffee", "t
 known_weights = [0., 0.]
 
 # traces_file_cases = ["laptop", "table", "proxemics"]
-traces_file_cases = ["laptop"]
+traces_file_cases = ["table"]
 traces_idx = np.arange(10).tolist()
 
 # learned weights from pushes
@@ -51,7 +51,7 @@ timestep=0.5
 #            'noxyz':False, 'subspace_heuristic':False}
 LF_dict = {'bet_data':5, 'sin':False, 'cos':False, 'rpy':False, 'lowdim':False, 'norot':True,
            'noangles':True, '6D_laptop':False, '6D_human':False, '9D_coffee':False, 'EErot':False,
-           'noxyz':False, 'subspace_heuristic':False}
+           'noxyz':False, 'subspace_heuristic':True}
 
 # %% [markdown]
 # # Learn Laptop Feature from collected feature traces
@@ -70,11 +70,11 @@ env = Environment("gen3", np.array([0.0, -1.5708, 0, -1.5708, 0, 0]), obj_center
                     feat_range, known_weights, viewer=False)
 
 # Step 1: load feature traces & initialize a learnable feature
-unknown_feature = LearnedFeature(3, 128, LF_dict)
+unknown_feature = LearnedFeature(2, 64, LF_dict)
 
 # for data_file in glob.glob(parent_dir + '/data/FERL_traces/traces_{}.p'.format(traces_file_cases[case-1])):
 trajectory_list = []
-for data_file in glob.glob(parent_dir + '/data/demonstrations/demo_5_laptop.p'):
+for data_file in glob.glob(parent_dir + '/data/demonstrations/demo_5_table.p'):
     # trajectory_list.extend(pickle.load(open( data_file, "rb" )))
     trajectory_list = pickle.load(open( data_file, "rb" ))
 
@@ -96,6 +96,9 @@ for data_file in glob.glob(parent_dir + '/data/demonstrations/demo_5_laptop.p'):
 all_trace_data = np.empty((0, 84), float)
 for idx in traces_idx:
     # print(trajectory_list[idx].shape)
+
+    # Reverse the order of the data
+    trajectory_list[idx] = trajectory_list[idx][::-1]
     unknown_feature.add_data(trajectory_list[idx])
     all_trace_data = np.vstack((all_trace_data, trajectory_list[idx]))
     # all_trace_data = np.append(all_trace_data, trajectory_list[idx])
