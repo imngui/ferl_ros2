@@ -247,10 +247,7 @@ class XRFerl(Node):
         # TF Buffer and Listener to get transformations
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
-        
-
-        # Set the rate to 500 Hz
-        # self.wrench_timer = self.create_timer(1.0 / 500.0, self.timer_callback)
+    
 
         self.latest_wrench = None
         self.new_plan = False
@@ -268,6 +265,7 @@ class XRFerl(Node):
 
         # Forward Position Controller
         # self.activate_controller('forward_position_controller')
+        self.interaction_point = None
 
 
     def activate_controller(self, controller_name):
@@ -379,10 +377,10 @@ class XRFerl(Node):
         self.get_logger().info(f'torque lo: {lo}')
         self.get_logger().info(f'torque hi: {hi}')
         self.interaction_data = self.interaction_data[lo:hi + 1]
-        interaction_point = points[hi+1]
+        self.interaction_point = points[hi+1]
         self.get_logger().info(f'torque: {self.interaction_data[0]}')
         self.interaction_mode = True
-
+        self.controller.set_trajectory(Trajectory([self.interaction_point], [0.0]))
         # TODO: Let controller move to interaction point while learning
 
         self.timestamp = time.time() - self.controller.path_start_T
@@ -482,7 +480,7 @@ class XRFerl(Node):
                                     hi -= 1
                                 self.get_logger().info(f'torque lo: {lo}')
                                 self.get_logger().info(f'torque hi: {hi}')
-                                feature_data = feature_data[lo:hi + 1, :]
+                                feature_data = feature_data[lo:hi + 1, :][::-1]
                                 # self.get_logger().info("Collected {} samples out of {}.".format(feature_data.shape[0], len(self.feature_data)))
                                 # self.publish_user_info("Collected {} samples out of {}.".format(feature_data.shape[0], len(self.feature_data)))
                                 self.get_logger().info("Collected {} demonstrations out of {}.".format(i+1, self.N_QUERIES))
@@ -613,6 +611,9 @@ class XRFerl(Node):
         self.curr_pos = curr_pos
         self.curr_vel = np.roll(np.array(msg.velocity),1).reshape(self.num_dofs,1)
         self.environment.update_curr_pos(curr_pos)
+        
+        if np.fabs(self.interaction_point, curr_pos) < 0.1:
+            self.interaction_point = None
 
         # Update cmd from PID based on current position.
         self.cmd = self.controller.get_command(self.curr_pos, self.curr_vel)
@@ -627,6 +628,14 @@ class XRFerl(Node):
     def publish_trajectory(self):
         if self.initial_joint_positions is None:
             return
+        
+        if self.interaction_point is not None:
+            joint_vel = np.array([self.cmd[i][i] for i in range(len(self.joint_names))]) 
+            # Float64MultiArray
+            traj_msg = Float64MultiArray()
+            traj_msg.data = joint_vel
+            self.vel_pub.publish(traj_msg)
+
         # self.get_logger().info(f'im: {self.interaction_mode}, cm: {self.can_move}, flm: {self.feature_learning_mode}, i: {self.interaction}')
         if not self.interaction_mode and self.can_move and not self.feature_learning_mode and not self.interaction:
             if self.controller.path_start_T is None:
