@@ -525,7 +525,7 @@ class XRFerl(Node):
                                 self.get_logger().info("Failed to get feature trace. Retrying...")
                                 self.publish_user_info("Failed to get feature trace. Retrying...")
 
-                        filename = "demo_5_laptop.p"
+                        filename = "demo_6_laptop.p"
                         savefile = os.path.join(get_package_share_directory('ferl'), 'data', 'demonstrations', filename)
                         with open(savefile, "wb") as f:
                             pickle.dump(self.environment.learned_features[-1].trace_list, f)

@@ -26,8 +26,8 @@ known_features_cases = [["coffee", "table"], ["coffee", "laptop"], ["coffee", "t
 known_weights = [0., 0.]
 
 # traces_file_cases = ["laptop", "table", "proxemics"]
-traces_file_cases = ["table"]
-traces_idx = np.arange(10).tolist()
+traces_file_cases = ["laptop"]
+traces_idx = np.arange(40).tolist()
 
 # learned weights from pushes
 p1 = [0.0, 4.03901256, 5.51417794]
@@ -74,7 +74,7 @@ unknown_feature = LearnedFeature(2, 64, LF_dict)
 
 # for data_file in glob.glob(parent_dir + '/data/FERL_traces/traces_{}.p'.format(traces_file_cases[case-1])):
 trajectory_list = []
-for data_file in glob.glob(parent_dir + '/data/demonstrations/demo_5_table.p'):
+for data_file in glob.glob(parent_dir + '/data/demonstrations/demo_6_laptop.p'):
     # trajectory_list.extend(pickle.load(open( data_file, "rb" )))
     trajectory_list = pickle.load(open( data_file, "rb" ))
 
