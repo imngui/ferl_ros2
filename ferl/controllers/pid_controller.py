@@ -90,10 +90,16 @@ class PIDController(object):
 
 			# Check if every joint is close enough to start configuration.
 			is_at_start = all([dist_from_start[i] < self.epsilon for i in range(self.num_dofs)])
+			# logger.info(f'dists: {[dist_from_start[i] < self.epsilon for i in range(self.num_dofs)]}')
 			if is_at_start:
+				logger.info('AT START!!')
 				self.path_start_T = time.time()
 		else:			
 			t = time.time() - self.path_start_T
+			if len(self.traj.waypts) <= 1:
+				# logger.info('HERE')
+				cmd = np.zeros((self.num_dofs, self.num_dofs))
+				return cmd
 
 			# Get next target position from position along trajectory.
 			self.target_pos = self.traj.interpolate(t + 0.1)

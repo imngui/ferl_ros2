@@ -129,15 +129,17 @@ class Environment(object):
         """
         object_coords = np.array([self.object_centers[x] for x in self.object_centers.keys()])
         if torch.is_tensor(waypt):
-            Tall = self.get_torch_transforms(waypt.to(device))
-            coords = Tall[:,:3,3]
-            orientations = Tall[:,:3,:3]
+            waypt_t = waypt
+            Tall = self.get_torch_transforms(waypt_t)
+            # logger.info(f'Tall: {Tall[0]}')
+            coords = Tall[1:,:3,3]
+            orientations = Tall[1:,:3,:3]
             object_coords = torch.from_numpy(object_coords)
-            # logger.info(f't waypt: {waypt.squeeze().shape}')
+            # logger.info(f't waypt: {waypt_t.squeeze().shape}')
             # logger.info(f't orien: {orientations.flatten().shape}')
             # logger.info(f't coord: {coords.flatten().shape}')
             # logger.info(f't ocoor: {object_coords.flatten().shape}')
-            return torch.reshape(torch.cat((waypt.squeeze(), orientations.flatten(), coords.flatten(), object_coords.flatten())), (-1,))
+            return torch.reshape(torch.cat((waypt_t.squeeze(), orientations.flatten(), coords.flatten(), object_coords.flatten())), (-1,))
         else:
             # if len(waypt) < 10:
             #     waypt_openrave = np.append(waypt.reshape(self.num_dofs), np.array([0]))
@@ -181,11 +183,11 @@ class Environment(object):
             return T
 
         # DH parameters for UR5e as given in the image
-        a = torch.tensor([0, -0.425, -0.3922, 0, 0.0, 0], requires_grad=True).to(device)
-        d = torch.tensor([0.1625, 0, 0, 0.1333, 0.0997, 0.0996], requires_grad=True).to(device)
-        alpha = torch.tensor([torch.pi/2, 0, 0, torch.pi/2, -torch.pi/2, 0], requires_grad=True).to(device)
+        a = torch.tensor([0, -0.425, -0.3922, 0, 0.0, 0], requires_grad=True)
+        d = torch.tensor([0.1625, 0, 0, 0.1333, 0.0997, 0.0996], requires_grad=True)
+        alpha = torch.tensor([torch.pi/2, 0, 0, torch.pi/2, -torch.pi/2, 0], requires_grad=True)
 
-        Tall = torch.eye(4).unsqueeze(0).to(device)  # Start with identity matrix for the base frame
+        Tall = torch.eye(4).unsqueeze(0)  # Start with identity matrix for the base frame
 
         T_prev = Tall[0]
 
@@ -326,7 +328,7 @@ class Environment(object):
         # EE_coord_xy = coords[6][0:2]
         EE_coord_xy = coords[-1][0:2]
         laptop_xy = np.array(self.object_centers['LAPTOP_CENTER'][0:2])
-        logger.info(f'ee: {EE_coord_xy}, laptop: {laptop_xy}')
+        # logger.info(f'ee: {EE_coord_xy}, laptop: {laptop_xy}')
         dist = np.linalg.norm(EE_coord_xy - laptop_xy) - 0.3
         if dist > 0:
             return 0

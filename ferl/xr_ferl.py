@@ -71,6 +71,7 @@ def convert_string_to_appropriate_type(value_str):
         # If evaluation fails, return the string as is
         return value_str
 
+
 class XRFerl(Node):
 
     def __init__(self):
@@ -256,6 +257,7 @@ class XRFerl(Node):
         self.begin_motion_timer = None
         self.can_move = True
         self.initialized = False
+        self.old_path_start_T = None
 
         self.switch_controller_client = self.create_client(SwitchController, '/controller_manager/switch_controller')
         self.deactivate_controller('scaled_joint_trajectory_controller')
@@ -266,6 +268,7 @@ class XRFerl(Node):
         # Forward Position Controller
         # self.activate_controller('forward_position_controller')
         self.interaction_point = None
+        self.num_calls = 0
 
 
     def activate_controller(self, controller_name):
@@ -310,6 +313,10 @@ class XRFerl(Node):
             self.publish_user_info("Done Learning, Resuming Planning")
             self.new_plan_timer = None
             self.new_plan = False
+            self.controller.path_start_T = None
+            self.reached_start = False
+            traj = Trajectory([self.start], [0.0])
+            self.controller.set_trajectory(traj)
 
 
     def register_callbacks(self):
@@ -317,18 +324,18 @@ class XRFerl(Node):
         Set up all the subscribers and publishers needed.
         """
         self.traj_timer = self.create_timer(0.1, self.publish_trajectory)
-        self.trajectory_pub = self.create_publisher(JointTrajectory, '/scaled_joint_trajectory_controller/joint_trajectory', 10)
-        self.vel_trajectory_pub = self.create_publisher(JointTrajectory, '/scaled_vel_joint_trajectory_controller/joint_trajectory', 10)
-        self.vel_pub = self.create_publisher(Float64MultiArray, '/forward_velocity_controller/commands', 10)
-        self.joint_angles_sub = self.create_subscription(JointState, '/joint_states', self.joint_angles_callback, 10)
+        self.trajectory_pub = self.create_publisher(JointTrajectory, '/scaled_joint_trajectory_controller/joint_trajectory', 1)
+        self.vel_trajectory_pub = self.create_publisher(JointTrajectory, '/scaled_vel_joint_trajectory_controller/joint_trajectory', 1)
+        self.vel_pub = self.create_publisher(Float64MultiArray, '/forward_velocity_controller/commands', 1)
+        self.joint_angles_sub = self.create_subscription(JointState, '/joint_states', self.joint_angles_callback, 1)
         # self.joint_currents_sub = self.create_subscription(JointState, '/joint_states', self.joint_currents_callback, 10)
         # self.joint_current_timer = self.create_timer(0.01, self.check_interaction)
 
-        self.interaction_sub = self.create_subscription(Bool, '/interaction', self.interaction_callback, 10)
-        self.demo_sub = self.create_subscription(JointTrajectory, '/joint_trajectory', self.demo_callback, 10)
-        self.info_pub = self.create_publisher(String, '/user_info', 10)
+        self.interaction_sub = self.create_subscription(Bool, '/interaction', self.interaction_callback, 1)
+        self.demo_sub = self.create_subscription(JointTrajectory, '/joint_trajectory', self.demo_callback, 1)
+        self.info_pub = self.create_publisher(String, '/user_info', 1)
 
-        self.satisfied_publisher = self.create_publisher(Bool, '/req_satisfied', 10)
+        self.satisfied_publisher = self.create_publisher(Bool, '/req_satisfied', 1)
         # Subscribe to the force-torque sensor data
         # self.force_torque_subscription = self.create_subscription(
         #     WrenchStamped,
@@ -336,7 +343,7 @@ class XRFerl(Node):
         #     self.wrench_callback,
         #     10)
         
-        self.ready_for_ft_pub = self.create_publisher(Bool, '/feedback_request', 10)
+        self.ready_for_ft_pub = self.create_publisher(Bool, '/feedback_request', 1)
 
     def publish_user_info(self, message):
         msg = String()
@@ -361,13 +368,15 @@ class XRFerl(Node):
     
     def demo_callback(self, msg):
         # Convert the message to interaction data in the form of torques.
+        # if len(self.interaction_data) >= 0:
+        #     return
+        self.num_calls += 1
+        self.get_logger().info(f'num_calls: {self.num_calls}')
         self.interaction_data = []
         self.interaction_time = []
-        points = []
         for point in msg.points:
             self.interaction_data.append(np.roll(np.array(point.effort), -1)) # TODO are the joints in the right order???
             self.interaction_time.append(point.time_from_start._sec) #TODO is this the right time?
-            points.append(np.roll(np.array(point.positions), -1))
         lo = 0
         hi = len(self.interaction_data) - 1
         while np.linalg.norm(self.interaction_data[lo] - self.interaction_data[lo + 1]) < 1e-5 and lo < hi:
@@ -377,13 +386,17 @@ class XRFerl(Node):
         self.get_logger().info(f'torque lo: {lo}')
         self.get_logger().info(f'torque hi: {hi}')
         self.interaction_data = self.interaction_data[lo:hi + 1]
-        self.interaction_point = points[hi+1]
         self.get_logger().info(f'torque: {self.interaction_data[0]}')
         self.interaction_mode = True
-        self.controller.set_trajectory(Trajectory([self.interaction_point], [0.0]))
+        if self.old_path_start_T is None:
+            self.old_path_start_T = self.controller.path_start_T
+        self.controller.path_start_T = None
+        self.reached_start = False
+        traj = Trajectory([self.start], [0.0])
+        self.controller.set_trajectory(traj)
         # TODO: Let controller move to interaction point while learning
 
-        self.timestamp = time.time() - self.controller.path_start_T
+        self.timestamp = time.time() - self.old_path_start_T
         if not self.learning:
             self.check_interaction()
             
@@ -481,30 +494,22 @@ class XRFerl(Node):
                                 self.get_logger().info(f'torque lo: {lo}')
                                 self.get_logger().info(f'torque hi: {hi}')
                                 feature_data = feature_data[lo:hi + 1, :][::-1]
-                                # self.get_logger().info("Collected {} samples out of {}.".format(feature_data.shape[0], len(self.feature_data)))
-                                # self.publish_user_info("Collected {} samples out of {}.".format(feature_data.shape[0], len(self.feature_data)))
-                                self.get_logger().info("Collected {} demonstrations out of {}.".format(i+1, self.N_QUERIES))
-                                self.publish_user_info("Collected {} demonstrations out of {}.".format(i+1, self.N_QUERIES))
 
-                                # TODO: Put this in XR
-                                # Provide optional start and end labels.
                                 start_label = 0.0
                                 end_label = 1.0
-                                # start_label = 1.0
-                                # end_label = 0.0
-
-                                traj = Trajectory(traj_data, np.linspace(0.0, self.T, len(traj_data)))
                                 
+                                self.get_logger().info("Collected {} demonstrations out of {}.".format(i+1, self.N_QUERIES))
+                                self.publish_user_info("Collected {} demonstrations out of {}.".format(i+1, self.N_QUERIES))
                                 # Downsample/Upsample trajectory to fit desired timestep and T.
-                                num_waypts = int(self.T / self.timestep) + 1
-                                if num_waypts < len(traj.waypts):
-                                    demo = traj.downsample(int(self.T / self.timestep) + 1)
-                                else:
-                                    demo = traj.upsample(int(self.T / self.timestep) + 1)
+                                # num_waypts = int(self.T / self.timestep) + 1
+                                # if num_waypts < len(traj.waypts):
+                                #     demo = traj.downsample(int(self.T / self.timestep) + 1)
+                                # else:
+                                #     demo = traj.upsample(int(self.T / self.timestep) + 1)
 
-                                # Decide whether to save trajectory
-                                openrave_utils.plotTraj(self.environment.env, self.environment.robot,
-                                                        self.environment.bodies, demo.waypts, size=0.015, color=[0, 0, 1])
+                                # # Decide whether to save trajectory
+                                # openrave_utils.plotTraj(self.environment.env, self.environment.robot,
+                                #                         self.environment.bodies, demo.waypts, size=0.015, color=[0, 0, 1])
 
                                 # self.get_logger().info("Would you like to label your start? Press ENTER if not or enter a number from 0-10")
                                 # line = sys.stdin.readline()
@@ -523,10 +528,10 @@ class XRFerl(Node):
                                 self.get_logger().info("Failed to get feature trace. Retrying...")
                                 self.publish_user_info("Failed to get feature trace. Retrying...")
 
-                        filename = "demo_6_laptop.p"
-                        savefile = os.path.join(get_package_share_directory('ferl'), 'data', 'demonstrations', filename)
-                        with open(savefile, "wb") as f:
-                            pickle.dump(self.environment.learned_features[-1].trace_list, f)
+                        # filename = "demo_6_laptop.p"
+                        # savefile = os.path.join(get_package_share_directory('ferl'), 'data', 'demonstrations', filename)
+                        # with open(savefile, "wb") as f:
+                        #     pickle.dump(self.environment.learned_features[-1].trace_list, f)
                         
                         # Train new feature with data of increasing "goodness".
                         self.environment.learned_features[-1].train()
@@ -550,7 +555,7 @@ class XRFerl(Node):
                     betas.append(beta_new)
 
                     # Move time forward to return to interaction position.
-                    self.controller.path_start_T += (time.time() - feature_learning_timestamp)
+                    self.old_path_start_T += (time.time() - feature_learning_timestamp)
 
                 # We do no have misspecification now, so resume reward learning.
                 self.feature_learning_mode = False
@@ -562,9 +567,11 @@ class XRFerl(Node):
                     self.learner.learn_weights(self.traj, self.interaction_data[i], self.interaction_time[i], betas)
 
                 self.get_logger().info(f'weights: {self.environment.weights}')
+                self.environment.update_curr_pos(self.start)
 
                 self.get_logger().info('Generating new trajectory')
                 self.publish_user_info("Generating new trajectory")
+                self.traj = self.planner.replan(self.start, self.goal, self.goal_pose, self.T, self.timestep, seed=self.traj_plan.waypts)
                 self.get_logger().info('Downsampling')
                 self.publish_user_info("Downsampling")
                 self.traj_plan = self.traj.downsample(self.planner.num_waypts)
@@ -599,7 +606,7 @@ class XRFerl(Node):
 
         if not self.initialized:
             self.environment.env.GetRobots()[0].SetActiveDOFValues(curr_pos)
-            self.start = curr_pos
+            self.start = curr_pos            # self.reached_start = True
             # self.goal = curr_pos
             # self.goal[0] += 1.5708
             self.initialized = True
@@ -612,15 +619,19 @@ class XRFerl(Node):
         self.curr_vel = np.roll(np.array(msg.velocity),1).reshape(self.num_dofs,1)
         self.environment.update_curr_pos(curr_pos)
         
-        if np.fabs(self.interaction_point, curr_pos) < 0.1:
-            self.interaction_point = None
+        # if np.fabs(self.interaction_point, curr_pos) < 0.1:
+        #     self.interaction_point = None
 
         # Update cmd from PID based on current position.
         self.cmd = self.controller.get_command(self.curr_pos, self.curr_vel)
 
+        # self.get_logger().info(f'path_start_T: {self.controller.path_start_T}')
         # Check if start/goal has been reached.
         if self.controller.path_start_T is not None:
+            if self.old_path_start_T is not None:
+                self.controller.path_start_T = self.old_path_start_T
             self.reached_start = True
+            self.controller.set_trajectory(self.traj)
         if self.controller.path_end_T is not None:
             self.reached_goal = True
 
@@ -629,24 +640,29 @@ class XRFerl(Node):
         if self.initial_joint_positions is None:
             return
         
-        if self.interaction_point is not None:
-            joint_vel = np.array([self.cmd[i][i] for i in range(len(self.joint_names))]) 
-            # Float64MultiArray
-            traj_msg = Float64MultiArray()
-            traj_msg.data = joint_vel
-            self.vel_pub.publish(traj_msg)
+        joint_vel = np.zeros(self.num_dofs)
+        
+        move_start = False
+        # self.get_logger().info(f'Reached Start: {self.reached_start}')
+        if self.reached_start == False:
+            self.get_logger().info(f'Move to Start')
+            traj = Trajectory([self.start], [0.0])
+            self.controller.set_trajectory(traj)
+            self.cmd = self.controller.get_command(self.curr_pos, self.curr_vel)
+            joint_vel = np.array([self.cmd[i][i] for i in range(len(self.joint_names))])
+            move_start = True
 
         # self.get_logger().info(f'im: {self.interaction_mode}, cm: {self.can_move}, flm: {self.feature_learning_mode}, i: {self.interaction}')
-        if not self.interaction_mode and self.can_move and not self.feature_learning_mode and not self.interaction:
-            if self.controller.path_start_T is None:
-                self.controller.path_start_T = time.time()
-            # self.get_logger().info('Publishing trajectory')
+        if not self.interaction_mode and self.can_move and not move_start and not self.feature_learning_mode and not self.interaction:
+            # if self.controller.path_start_T is None:
+            #     self.controller.path_start_T = time.time()
+            self.get_logger().info('Publishing trajectory')
             joint_vel = np.array([self.cmd[i][i] for i in range(len(self.joint_names))]) 
             
-            # Float64MultiArray
-            traj_msg = Float64MultiArray()
-            traj_msg.data = joint_vel
-            self.vel_pub.publish(traj_msg)
+        # Float64MultiArray
+        traj_msg = Float64MultiArray()
+        traj_msg.data = joint_vel
+        self.vel_pub.publish(traj_msg)
 
 
 def main(args=None):

@@ -32,6 +32,8 @@ setup(
             'demo_recorder = ferl.demo_recorder:main',
             'user_input_node = ferl.user_input_node:main',
             'xr_ferl = ferl.xr_ferl:main',
+            'ferl = ferl.ferl:main',
+            'ferl_init = ferl.ferl_init:main',
         ],
     },
 )

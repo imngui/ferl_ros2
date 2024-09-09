@@ -252,9 +252,9 @@ class Ferl(Node):
         self.activate_controller('forward_velocity_controller')
         
         # Create a client for the ServoCommandType service
-        self.switch_input_client = self.create_client(ServoCommandType, '/servo_node/switch_command_type')
+        # self.switch_input_client = self.create_client(ServoCommandType, '/servo_node/switch_command_type')
         # Call the service to enable TWIST command type
-        self.enable_twist_command()
+        # self.enable_twist_command()
 
 
     def activate_controller(self, controller_name):
@@ -337,7 +337,7 @@ class Ferl(Node):
         """
         Set up all the subscribers and publishers needed.
         """
-        self.traj_timer = self.create_timer(0.1, self.publish_trajectory)
+        self.traj_timer = self.create_timer(0.01, self.publish_trajectory)
         self.trajectory_pub = self.create_publisher(JointTrajectory, '/scaled_joint_trajectory_controller/joint_trajectory', 10)
         self.vel_trajectory_pub = self.create_publisher(JointTrajectory, '/scaled_vel_joint_trajectory_controller/joint_trajectory', 10)
         self.vel_pub = self.create_publisher(Float64MultiArray, '/forward_velocity_controller/commands', 10)
@@ -357,12 +357,15 @@ class Ferl(Node):
             10)
         
         self.ready_for_ft_pub = self.create_publisher(Bool, '/feedback_request', 10)
+        self.zero_ft_client = self.create_client(Trigger, '/io_and_status_controller/zero_ftsensor')
+        self.zero_ft_sensor()
         
     def joint_currents_callback(self, msg):
         # Convert joint current to torque using UR5e torque constants
         self.curr_torque = np.roll(np.array(msg.effort), 1) * [0.125, 0.125, 0.125, 0.092, 0.092, 0.092]
         
     def timer_callback(self):
+        return
         if self.latest_wrench is not None and self.initialized:
             try:
                 # Look up the transformation from ft_frame to tool0 and then tool0 to base_link
@@ -504,6 +507,7 @@ class Ferl(Node):
         return raw_traj_data
 
     def check_interaction(self):
+        return
         # curr_torque = self.interaction_data[0] if len(self.interaction_data) > 0 else np.zeros((self.num_dofs, self.num_dofs))
         curr_torque = self.curr_torque        
         
@@ -640,6 +644,7 @@ class Ferl(Node):
 
                 self.get_logger().info('Generating new trajectory')
                 self.publish_user_info("Generating new trajectory")
+                self.traj = self.planner.replan(self.start, self.goal, self.goal_pose, self.T, self.timestep, seed=self.traj_plan.waypts)
                 self.get_logger().info('Downsampling')
                 self.publish_user_info("Downsampling")
                 self.traj_plan = self.traj.downsample(self.planner.num_waypts)
@@ -674,7 +679,8 @@ class Ferl(Node):
 
         if not self.initialized:
             self.environment.env.GetRobots()[0].SetActiveDOFValues(curr_pos)
-            self.start = curr_pos
+            traj = Trajectory([self.start], [0.0])
+            self.controller.set_trajectory(traj)
             self.initialized = True
             
         if self.feature_learning_mode:
@@ -696,6 +702,7 @@ class Ferl(Node):
         # Check if start/goal has been reached.
         if self.controller.path_start_T is not None:
             self.reached_start = True
+            self.controller.set_trajectory(self.traj)
         if self.controller.path_end_T is not None:
             self.reached_goal = True
 
@@ -703,18 +710,27 @@ class Ferl(Node):
     def publish_trajectory(self):
         if self.initial_joint_positions is None:
             return
-
+        joint_vel = np.zeros(self.num_dofs)
+        
+        move_start = False
+        if self.reached_start == False:
+            # self.get_logger().info(f'Move to Start')
+            self.cmd = self.controller.get_command(self.curr_pos, self.curr_vel)
+            joint_vel = np.array([self.cmd[i][i] for i in range(len(self.joint_names))])
+            move_start = True
+ 
+            
         # self.get_logger().info(f'im: {self.interaction_mode}, cm: {self.can_move}, flm: {self.feature_learning_mode}, i: {self.interaction}')
-        if not self.interaction_mode and self.can_move and not self.feature_learning_mode and not self.interaction:
-            if self.controller.path_start_T is None:
-                self.controller.path_start_T = time.time()
+        if not self.interaction_mode and self.can_move and not move_start and not self.feature_learning_mode and not self.interaction:
+            # if self.controller.path_start_T is None:
+            #     self.controller.path_start_T = time.time()
             # self.get_logger().info('Publishing trajectory')
             joint_vel = np.array([self.cmd[i][i] for i in range(len(self.joint_names))]) 
-            
-            # Float64MultiArray
-            traj_msg = Float64MultiArray()
-            traj_msg.data = joint_vel
-            self.vel_pub.publish(traj_msg)
+
+        # Float64MultiArray
+        traj_msg = Float64MultiArray()
+        traj_msg.data = joint_vel
+        self.vel_pub.publish(traj_msg)
 
 
 def main(args=None):

@@ -11,6 +11,8 @@ from ferl.utils.trajectory import Trajectory
 from rclpy.impl import rcutils_logger
 logger = rcutils_logger.RcutilsLogger(name="trajopt")
 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 class TrajoptPlanner(object):
 	"""
 	This class plans a trajectory from start to goal with TrajOpt, given
@@ -147,6 +149,7 @@ class TrajoptPlanner(object):
 		for i, feature in enumerate(self.environment.learned_features):
 			# Setup for computing Jacobian.
 			x = torch.tensor(waypt, requires_grad=True)
+			x.retain_grad()
 	
 			# Get the value of the feature
 			feat_idx = self.environment.num_features - n_learned + i
@@ -161,7 +164,7 @@ class TrajoptPlanner(object):
 			y = feat_val / torch.tensor(float(NUM_STEPS), requires_grad=True)
 			y = y * torch.tensor(self.environment.weights[-n_learned+i:], requires_grad=True) * torch.norm(x[self.num_dofs:] - x[:self.num_dofs])
 			y.backward()
-			J.append(x.grad.data.numpy())
+			J.append(x.grad.data.cpu().numpy())
 		return np.sum(np.array(J), axis = 0).reshape((1,-1))
 
 	# ---- Here's TrajOpt --- #

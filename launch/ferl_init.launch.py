@@ -115,7 +115,7 @@ def declare_arguments():
             ),
             DeclareLaunchArgument(
                 'config',
-                default_value=os.path.join(get_package_share_directory('ferl'),'config','ferl.yaml'),
+                default_value=os.path.join(get_package_share_directory('ferl'),'config','ferl_init.yaml'),
                 description='Path to the config file'
             ),
             DeclareLaunchArgument(
@@ -148,7 +148,7 @@ def generate_launch_description():
                                  default=os.path.join(
                                      get_package_share_directory('ferl'),
                                      'config',
-                                     'ferl.yaml'))
+                                     'ferl_init.yaml'))
 
     moveit_config = (
         MoveItConfigsBuilder(robot_name="ur", package_name="ur_moveit_config")
@@ -184,15 +184,15 @@ def generate_launch_description():
     ld.add_action(wait_robot_description)
 
 
-    ferl_node = Node(
+    ferl_init_node = Node(
         package="ferl",
-        executable="ferl",
+        executable="ferl_init",
         parameters=[
             moveit_config.to_dict(),
             config,
         ]
     )
-    ld.add_action(ferl_node)
+    ld.add_action(ferl_init_node)
 
     move_group_node = Node(
         package="moveit_ros_move_group",

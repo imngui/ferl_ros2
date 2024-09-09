@@ -62,13 +62,13 @@ class LearnedFeature(object):
 			if self.LF_dict['subspace_heuristic']:
 				for sub_range in self.subspaces_list:
 					model = DNN(nb_layers, nb_units, sub_range[1] - sub_range[0])
-					self.models.append(model.to(device))  # Move model to device
+					self.models.append(model)  # Move model to device
 			else:
 					model = DNN(nb_layers, nb_units, self.subspaces_list[-1][1])
-					self.models.append(model.to(device))
+					self.models.append(model)
 		else:
 			model = DNN(nb_layers, nb_units, self.subspaces_list[-1][1])
-			self.models.append(model.to(device))
+			self.models.append(model)
 
 	def function(self, x, model=None, torchify=False, norm=False):
 		"""
@@ -95,7 +95,7 @@ class LearnedFeature(object):
 		# Transform the input
 		x = transform_input(x.detach().cpu(), self.LF_dict)
 		# logger.info(f'learned_feat transform: {x.shape}')
-		x = x.to(device)
+		x = x
 
 		if 'subspace_heuristic' in self.LF_dict:
 			if self.LF_dict['subspace_heuristic']: # transform to the model specific subspace input
@@ -253,7 +253,7 @@ class LearnedFeature(object):
 					avg_in_loss = []
 					for batch in train_loader:
 						optimizers[i].zero_grad()
-						loss = self.FERL_loss(batch.to(device), model_idx=i, s_g_weight=s_g_weight)
+						loss = self.FERL_loss(batch, model_idx=i, s_g_weight=s_g_weight)
 						loss.backward()
 						optimizers[i].step()
 						avg_in_loss.append(loss.item())
@@ -265,7 +265,7 @@ class LearnedFeature(object):
 				for i, model in enumerate(self.models):
 					avg_in_loss = []
 					for batch in test_loader:
-						loss = self.FERL_loss(batch.to(device), model_idx=i, s_g_weight=s_g_weight)
+						loss = self.FERL_loss(batch, model_idx=i, s_g_weight=s_g_weight)
 						avg_in_loss.append(loss.item())
 						# logger.info(f'avg_in_loss: {avg_in_loss}')
 					# log over training
@@ -314,21 +314,21 @@ class LearnedFeature(object):
 			output: 	scalar loss
 		"""
 		# arrays of the states
-		s_1s_array = batch['s1'].to(device)
-		s_2s_array = batch['s2'].to(device)
+		s_1s_array = batch['s1']
+		s_2s_array = batch['s2']
 
 		# arrays of the start & end labels
-		delta_1s_array = batch['l1'].to(device)
-		delta_2s_array = batch['l2'].to(device)
+		delta_1s_array = batch['l1']
+		delta_2s_array = batch['l2']
 
 		# label for classifiers
-		labels = batch['label'].to(device)
+		labels = batch['label']
 
-		weights = torch.ones(labels.shape).to(device)
-		weights = weights + (labels == 0.5)*torch.full(labels.shape, s_g_weight).to(device)
+		weights = torch.ones(labels.shape)
+		weights = weights + (labels == 0.5)*torch.full(labels.shape, s_g_weight)
 
-		s1_adds = (delta_1s_array * (self.max_labels[model_idx] - self.min_labels[model_idx])).reshape(-1,1).to(device)
-		s2_adds = (delta_2s_array * (self.max_labels[model_idx] - self.min_labels[model_idx])).reshape(-1, 1).to(device)
+		s1_adds = (delta_1s_array * (self.max_labels[model_idx] - self.min_labels[model_idx])).reshape(-1,1)
+		s2_adds = (delta_2s_array * (self.max_labels[model_idx] - self.min_labels[model_idx])).reshape(-1, 1)
 
 		# calculate test_loss  (with additive thing)
 		s1_logits = self.function(s_1s_array, model=model_idx) + s1_adds
