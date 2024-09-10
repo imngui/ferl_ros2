@@ -486,11 +486,20 @@ class XRFerl(Node):
                                 # feature_data = self.feature_data
                                 lo = 0
                                 hi = feature_data.shape[0] - 1
+                                q = False
                                 while np.linalg.norm(feature_data[lo] - feature_data[lo + 1]) < 1e-5 and lo < hi:
                                     # self.get_logger().info(f'tol: {np.linalg.norm(feature_data[lo] - feature_data[lo + 1])}, pos: {feature_data[lo]}')
+                                    if lo >= hi:
+                                        q = True
+                                        continue
                                     lo += 1
                                 while np.linalg.norm(feature_data[hi] - feature_data[hi - 1]) < 1e-5 and hi > 0:
+                                    if q:
+                                        continue
                                     hi -= 1
+                                if q:
+                                    i = i-1
+                                    continue
                                 self.get_logger().info(f'torque lo: {lo}')
                                 self.get_logger().info(f'torque hi: {hi}')
                                 feature_data = feature_data[lo:hi + 1, :][::-1]
@@ -528,10 +537,10 @@ class XRFerl(Node):
                                 self.get_logger().info("Failed to get feature trace. Retrying...")
                                 self.publish_user_info("Failed to get feature trace. Retrying...")
 
-                        # filename = "demo_6_laptop.p"
-                        # savefile = os.path.join(get_package_share_directory('ferl'), 'data', 'demonstrations', filename)
-                        # with open(savefile, "wb") as f:
-                        #     pickle.dump(self.environment.learned_features[-1].trace_list, f)
+                        filename = "demo_0_proxemics.p"
+                        savefile = os.path.join(get_package_share_directory('ferl'), 'data', 'demonstrations', filename)
+                        with open(savefile, "wb") as f:
+                            pickle.dump(self.environment.learned_features[-1].trace_list, f)
                         
                         # Train new feature with data of increasing "goodness".
                         self.environment.learned_features[-1].train()

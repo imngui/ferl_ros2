@@ -164,6 +164,7 @@ class Ferl(Node):
         self.feature_learning_mode = False
         self.prev_interaction_mode = False
         self.interaction_mode = False
+        self.interaction_start = None
 
         # Save the intermediate target configuration.
         self.curr_pos = None
@@ -252,9 +253,9 @@ class Ferl(Node):
         self.activate_controller('forward_velocity_controller')
         
         # Create a client for the ServoCommandType service
-        # self.switch_input_client = self.create_client(ServoCommandType, '/servo_node/switch_command_type')
+        self.switch_input_client = self.create_client(ServoCommandType, '/servo_node/switch_command_type')
         # Call the service to enable TWIST command type
-        # self.enable_twist_command()
+        self.enable_twist_command()
 
 
     def activate_controller(self, controller_name):
@@ -330,8 +331,12 @@ class Ferl(Node):
             self.get_logger().info(f'Done Learning, Resuming Planning')
             self.publish_user_info("Done Learning, Resuming Planning")
             self.new_plan_timer = None
-            self.new_plan = False
-
+            traj = Trajectory([self.start], [0.0])
+            self.controller.set_trajectory(traj)
+            self.controller.path_start_T = None
+            self.reached_start = False
+            
+            
 
     def register_callbacks(self):
         """
@@ -345,7 +350,7 @@ class Ferl(Node):
         self.joint_currents_sub = self.create_subscription(JointState, '/joint_states', self.joint_currents_callback, 10)
         self.joint_current_timer = self.create_timer(0.01, self.check_interaction)
 
-        self.info_pub = self.create_publisher(String, '/user_info', 10)
+        self.info_pub = self.create_publisher(String, '/req_user_input', 10)
         self.twist_pub_ = self.create_publisher(TwistStamped, '/servo_node/delta_twist_cmds', 10)
 
         self.satisfied_publisher = self.create_publisher(Bool, '/req_satisfied', 10)
@@ -356,6 +361,9 @@ class Ferl(Node):
             self.wrench_callback,
             10)
         
+        # Set the rate to 500 Hz
+        self.wrench_timer = self.create_timer(1.0 / 500.0, self.timer_callback)
+        
         self.ready_for_ft_pub = self.create_publisher(Bool, '/feedback_request', 10)
         self.zero_ft_client = self.create_client(Trigger, '/io_and_status_controller/zero_ftsensor')
         self.zero_ft_sensor()
@@ -365,7 +373,7 @@ class Ferl(Node):
         self.curr_torque = np.roll(np.array(msg.effort), 1) * [0.125, 0.125, 0.125, 0.092, 0.092, 0.092]
         
     def timer_callback(self):
-        return
+        # return
         if self.latest_wrench is not None and self.initialized:
             try:
                 # Look up the transformation from ft_frame to tool0 and then tool0 to base_link
@@ -507,12 +515,12 @@ class Ferl(Node):
         return raw_traj_data
 
     def check_interaction(self):
-        return
+        # return
         # curr_torque = self.interaction_data[0] if len(self.interaction_data) > 0 else np.zeros((self.num_dofs, self.num_dofs))
         curr_torque = self.curr_torque        
         
-        self.get_logger().info(f'Interaction')
-        if self.reached_start and not self.reached_goal:
+        if self.interaction:
+            self.get_logger().info(f'Interaction')
             timestamp = time.time() - self.controller.path_start_T
             self.interaction_data.append(curr_torque)
             self.interaction_time.append(timestamp)
@@ -631,6 +639,8 @@ class Ferl(Node):
                     # Move time forward to return to interaction position.
                     self.controller.path_start_T += (time.time() - feature_learning_timestamp)
 
+                # if self.feature_learning_mode:
+                #     self.
                 # We do no have misspecification now, so resume reward learning.
                 self.feature_learning_mode = False
                 
@@ -644,6 +654,7 @@ class Ferl(Node):
 
                 self.get_logger().info('Generating new trajectory')
                 self.publish_user_info("Generating new trajectory")
+                self.environment.update_curr_pos(self.start)
                 self.traj = self.planner.replan(self.start, self.goal, self.goal_pose, self.T, self.timestep, seed=self.traj_plan.waypts)
                 self.get_logger().info('Downsampling')
                 self.publish_user_info("Downsampling")
@@ -710,6 +721,10 @@ class Ferl(Node):
     def publish_trajectory(self):
         if self.initial_joint_positions is None:
             return
+        
+        if self.interaction:
+            return
+        
         joint_vel = np.zeros(self.num_dofs)
         
         move_start = False

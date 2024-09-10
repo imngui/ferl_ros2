@@ -26,8 +26,8 @@ known_features_cases = [["coffee", "table"], ["coffee", "laptop"], ["coffee", "t
 known_weights = [0., 0.]
 
 # traces_file_cases = ["laptop", "table", "proxemics"]
-traces_file_cases = ["laptop"]
-traces_idx = np.arange(40).tolist()
+traces_file_cases = ["coffee"]
+traces_idx = np.arange(10).tolist()
 
 # learned weights from pushes
 p1 = [0.0, 4.03901256, 5.51417794]
@@ -41,7 +41,7 @@ learned_weights_from_pushes_cases = [p1, p2, p3]
 
 # some settings for TrajOpt
 FEAT_RANGE = {'table':0.98, 'coffee':1.0, 'laptop':0.3, 'human':0.3, 'efficiency':0.22, 'proxemics': 0.3, 'betweenobjects': 0.2, 'learned_feature':1.0}
-obj_center_dict = {'HUMAN_CENTER': [-0.2, -0.5, 0.6], 'LAPTOP_CENTER': [-0.5, 0.0, 0.0]}
+obj_center_dict = {'HUMAN_CENTER': [-0.2, -0.5, 0.6], 'LAPTOP_CENTER': [-0.65, 0.0, 0.0]}
 T = 20.0
 timestep=0.5
 
@@ -49,7 +49,7 @@ timestep=0.5
 # LF_dict = {'bet_data':5, 'sin':False, 'cos':False, 'rpy':False, 'lowdim':False, 'norot':True,
 #            'noangles':True, '6D_laptop':False, '6D_human':False, '9D_coffee':False, 'EErot':False,
 #            'noxyz':False, 'subspace_heuristic':False}
-LF_dict = {'bet_data':5, 'sin':False, 'cos':False, 'rpy':False, 'lowdim':False, 'norot':True,
+LF_dict = {'bet_data':5, 'sin':False, 'cos':False, 'rpy':False, 'lowdim':False, 'norot':False,
            'noangles':True, '6D_laptop':False, '6D_human':False, '9D_coffee':False, 'EErot':False,
            'noxyz':False, 'subspace_heuristic':True}
 
@@ -74,7 +74,7 @@ unknown_feature = LearnedFeature(2, 64, LF_dict)
 
 # for data_file in glob.glob(parent_dir + '/data/FERL_traces/traces_{}.p'.format(traces_file_cases[case-1])):
 trajectory_list = []
-for data_file in glob.glob(parent_dir + '/data/demonstrations/demo_6_laptop.p'):
+for data_file in glob.glob(parent_dir + '/data/demonstrations/demo_0_mug.p'):
     # trajectory_list.extend(pickle.load(open( data_file, "rb" )))
     trajectory_list = pickle.load(open( data_file, "rb" ))
 
@@ -95,10 +95,11 @@ for data_file in glob.glob(parent_dir + '/data/demonstrations/demo_6_laptop.p'):
 
 all_trace_data = np.empty((0, 84), float)
 for idx in traces_idx:
+# for idx in range(0, len(trajectory_list)):
     # print(trajectory_list[idx].shape)
 
-    # Reverse the order of the data
-    trajectory_list[idx] = trajectory_list[idx][::-1]
+    # Reverse the order of the data (IF PROXEMICS or MUG DO NOT REVERSE)
+    # trajectory_list[idx] = trajectory_list[idx][::-1]
     unknown_feature.add_data(trajectory_list[idx])
     all_trace_data = np.vstack((all_trace_data, trajectory_list[idx]))
     # all_trace_data = np.append(all_trace_data, trajectory_list[idx])
