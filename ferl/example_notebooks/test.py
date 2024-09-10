@@ -22,7 +22,8 @@ from utils.plot_utils import *
 # Settings for the different cases
 feat_list_cases = [["coffee","table", "laptop"],["coffee","laptop", "table"], ["coffee","table", "proxemics"]]
 weights_cases = [[0.0, 10.0, 10.0], [0.0, 10.0, 10.0], [0.0, 10.0, 10.0]]
-known_features_cases = [["coffee", "table"], ["coffee", "laptop"], ["coffee", "table"]]
+# known_features_cases = [["coffee", "table"], ["coffee", "laptop"], ["coffee", "table"]]
+known_features_cases = [["proxemics", "table"], ["proxemics", "laptop"], ["proxemics", "table"]]
 known_weights = [0., 0.]
 
 # traces_file_cases = ["laptop", "table", "proxemics"]
@@ -118,7 +119,7 @@ for idx in traces_idx:
 
 # %%
 # 1.1 Visualize the Traces labeled at random with the initialized Network
-plot_learned_traj(unknown_feature.function, all_trace_data, env)
+plot_learned_traj(unknown_feature.function, all_trace_data, env, feat=traces_file_cases[case-1])
 
 # %%
 # Step 2: train the feature on the set of traces
@@ -129,11 +130,11 @@ _ = unknown_feature.train(epochs=100, batch_size=32, learning_rate=1e-3, weight_
 
 # %%
 # 3.1 Visualize the labeled Traces
-plot_learned_traj(unknown_feature.function, all_trace_data, env)
+plot_learned_traj(unknown_feature.function, all_trace_data, env, feat=traces_file_cases[case-1])
 
 # %%
 # 3.2 Visualize the learned function over the 3D Reachable Set
-plot_learned3D(parent_dir, unknown_feature.function, env)
+plot_learned3D(parent_dir, unknown_feature.function, env, feat=traces_file_cases[case-1])
 
 # %% [markdown]
 # # Merge learned feature to others for overall cost/reward function
