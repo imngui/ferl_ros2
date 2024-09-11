@@ -241,7 +241,6 @@ class DemoRecorder(Node):
         self.initialized = False
         
         self.environment.new_learned_feature(self.nb_layers, self.nb_units)
-        # self.feature_traces = []
         self.feature_trace = None
 
     def register_callbacks(self):
