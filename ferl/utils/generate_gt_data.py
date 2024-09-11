@@ -88,7 +88,7 @@ def coffee_features(environment, waypt):
     #     waypt = np.append(waypt.reshape(num_dofs), np.array([0,0,0]))
     #     waypt[2] += math.pi
 
-    environment.robot.SetDOFValues(waypt)
+    environment.robot.SetActiveDOFValues(waypt)
     # EE_link = environment.robot.GetLinks()[7]
     EE_link = environment.robot.GetLink('tool0')
     Rx = EE_link.GetTransform()[:3,0]
@@ -112,7 +112,7 @@ def laptop_features(environment, waypt):
     #     waypt = np.append(waypt.reshape(num_dofs), np.array([0,0,0]))
     #     waypt[2] += math.pi
 
-    environment.robot.SetDOFValues(waypt)
+    environment.robot.SetActiveDOFValues(waypt)
     coords = robotToCartesian(environment.robot)
     # EE_coord_xy = coords[6][0:2]
     EE_coord_xy = coords[-1][0:2]
@@ -139,7 +139,7 @@ def human_features(environment, waypt):
     # if len(waypt) < 10:
     #     waypt = np.append(waypt.reshape(num_dofs), np.array([0,0,0]))
     #     waypt[2] += math.pi
-    environment.robot.SetDOFValues(waypt)
+    environment.robot.SetActiveDOFValues(waypt)
     coords = robotToCartesian(environment.robot)
     # EE_coord_xy = coords[6][0:2]
     EE_coord_xy = coords[-1][0:2]
@@ -166,7 +166,7 @@ def proxemics_features(environment, waypt):
     # if len(waypt) < 10:
     #     waypt = np.append(waypt.reshape(num_dofs), np.array([0,0,0]))
     #     waypt[2] += math.pi
-    environment.robot.SetDOFValues(waypt)
+    environment.robot.SetActiveDOFValues(waypt)
     coords = robotToCartesian(environment.robot)
     # EE_coord_xy = coords[6][0:2]
     EE_coord_xy = coords[-1][0:2]
@@ -194,7 +194,7 @@ def betweenobjects_features(environment, waypt):
     # if len(waypt) < 10:
     #     waypt = np.append(waypt.reshape(num_dofs), np.array([0,0,0]))
     #     waypt[2] += math.pi
-    environment.robot.SetDOFValues(waypt)
+    environment.robot.SetActiveDOFValues(waypt)
     coords = robotToCartesian(environment.robot)
     # EE_coord_xy = coords[6][0:2]
     EE_coord_xy = coords[-1][0:2]

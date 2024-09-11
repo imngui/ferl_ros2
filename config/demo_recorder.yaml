@@ -5,7 +5,7 @@ demo_recorder_node:
             model_filename: "gen3"
             object_centers: 
                 - "HUMAN_CENTER:[-0.2,-0.5,0.6]"
-                - "LAPTOP_CENTER:[0.0,-0.8,0.0]"
+                - "LAPTOP_CENTER:[-0.65, 0.0,0.0]"
                 # HUMAN_CENTER: [-0.2,-0.5,0.6]
                 # LAPTOP_CENTER: [0.0,-0.8,0.0]
             feat_list: ["table"]
@@ -37,17 +37,17 @@ demo_recorder_node:
                 - "cos:False"
                 - "rpy:False"
                 - "lowdim:False"
-                - "EErot:True"
+                - "EErot:False"
                 - "noxyz:False"
-                - "norot:False"
+                - "norot:True"
                 - "noangles:True"
                 - "6D_laptop:False"
                 - "6D_human:False"
                 - "9D_coffee:False"
             CONFIDENCE_THRESHOLD: 1.0
             N_QUERIES: 10
-            nb_layers: 3
-            nb_units: 128
+            nb_layers: 2
+            nb_units: 64
 
         planner:
             # These settings have been tuned for trajopt planner.

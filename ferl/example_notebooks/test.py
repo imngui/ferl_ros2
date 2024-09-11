@@ -11,6 +11,7 @@ os.environ['KMP_DUPLICATE_LIB_OK']='True'
 sys.path.append(os.path.join(os.path.abspath(os.getcwd()),".."))
 sys.path.append(os.path.join(os.path.abspath(os.getcwd()),"../.."))
 parent_dir = os.path.abspath(os.path.join(os.getcwd(), '../..'))
+import torch
 
 # %%
 # import FERL Modules
@@ -27,7 +28,7 @@ known_features_cases = [["proxemics", "table"], ["proxemics", "laptop"], ["proxe
 known_weights = [0., 0.]
 
 # traces_file_cases = ["laptop", "table", "proxemics"]
-traces_file_cases = ["coffee"]
+traces_file_cases = ["table"]
 traces_idx = np.arange(10).tolist()
 
 # learned weights from pushes
@@ -50,9 +51,9 @@ timestep=0.5
 # LF_dict = {'bet_data':5, 'sin':False, 'cos':False, 'rpy':False, 'lowdim':False, 'norot':True,
 #            'noangles':True, '6D_laptop':False, '6D_human':False, '9D_coffee':False, 'EErot':False,
 #            'noxyz':False, 'subspace_heuristic':False}
-LF_dict = {'bet_data':5, 'sin':False, 'cos':False, 'rpy':False, 'lowdim':False, 'norot':False,
+LF_dict = {'bet_data':5, 'sin':False, 'cos':False, 'rpy':False, 'lowdim':False, 'norot':True,
            'noangles':True, '6D_laptop':False, '6D_human':False, '9D_coffee':False, 'EErot':False,
-           'noxyz':False, 'subspace_heuristic':True}
+           'noxyz':False, 'subspace_heuristic':False}
 
 # %% [markdown]
 # # Learn Laptop Feature from collected feature traces
@@ -70,12 +71,15 @@ gt_feat_range = [FEAT_RANGE[feat_list_cases[case-1][feat]] for feat in range(len
 env = Environment("gen3", np.array([0.0, -1.5708, 0, -1.5708, 0, 0]), obj_center_dict, known_features_cases[case-1],
                     feat_range, known_weights, viewer=False)
 
+# env = Environment("gen3", np.array([0.0, -1.5708, 0, -1.5708, 0, 0]), obj_center_dict, known_features_cases[case-1],
+#                     known_features_cases[case-1], known_weights, viewer=False)
+
 # Step 1: load feature traces & initialize a learnable feature
 unknown_feature = LearnedFeature(2, 64, LF_dict)
 
 # for data_file in glob.glob(parent_dir + '/data/FERL_traces/traces_{}.p'.format(traces_file_cases[case-1])):
 trajectory_list = []
-for data_file in glob.glob(parent_dir + '/data/demonstrations/demo_0_mug.p'):
+for data_file in glob.glob(parent_dir + '/data/demonstrations/sim_demo_{}.p'.format(traces_file_cases[case-1])):
     # trajectory_list.extend(pickle.load(open( data_file, "rb" )))
     trajectory_list = pickle.load(open( data_file, "rb" ))
 
@@ -94,10 +98,13 @@ for data_file in glob.glob(parent_dir + '/data/demonstrations/demo_0_mug.p'):
 # for data_file in glob.glob(parent_dir + '/data/demonstrations/demo_2_laptop.p'):
 #     trajectory_list.extend(pickle.load(open( data_file, "rb" )))
 
+# for data_file in glob.glob(parent_dir + '/data/demonstrations/demo_7_laptop.p'):
+#     trajectory_list.extend(pickle.load(open( data_file, "rb" )))
+
 all_trace_data = np.empty((0, 84), float)
 for idx in traces_idx:
 # for idx in range(0, len(trajectory_list)):
-    # print(trajectory_list[idx].shape)
+#     print(trajectory_list[idx].shape)
 
     # Reverse the order of the data (IF PROXEMICS or MUG DO NOT REVERSE)
     # trajectory_list[idx] = trajectory_list[idx][::-1]
@@ -120,9 +127,11 @@ for idx in traces_idx:
 # %%
 # 1.1 Visualize the Traces labeled at random with the initialized Network
 plot_learned_traj(unknown_feature.function, all_trace_data, env, feat=traces_file_cases[case-1])
+plot_learned3D(parent_dir, unknown_feature.function, env, feat=traces_file_cases[case-1])
 
 # %%
 # Step 2: train the feature on the set of traces
+# torch.set_num_threads(4)
 _ = unknown_feature.train(epochs=100, batch_size=32, learning_rate=1e-3, weight_decay=0.001, s_g_weight=10.)
 
 # %%
@@ -153,6 +162,8 @@ env.weights = learned_weights_from_pushes_cases[case-1]
 # plot GT
 gt_env = Environment("jaco_dynamics", np.array([0.0, -1.5708, 0, -1.5708, 0, 0]), obj_center_dict, feat_list_cases[case-1],
                   gt_feat_range, weights_cases[case-1], viewer=False)
+# gt_env = Environment("jaco_dynamics", np.array([0.0, -1.5708, 0, -1.5708, 0, 0]), obj_center_dict, feat_list_cases[case-1],
+#                   feat_list_cases[case-1], weights_cases[case-1], viewer=False)
 plot_gt3D(parent_dir, gt_env)
 
 # %%

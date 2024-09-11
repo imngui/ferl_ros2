@@ -81,8 +81,8 @@ class DemoRecorder(Node):
         self.load_params()
         self.register_callbacks()
         
-        self.run_thread = threading.Thread(target=self.run)
-        self.run_thread.start()
+        # self.run_thread = threading.Thread(target=self.run)
+        # self.run_thread.start()
 
 
     def load_params(self):
@@ -249,6 +249,7 @@ class DemoRecorder(Node):
         """
         self.joint_angles_sub = self.create_subscription(JointState, '/joint_states', self.joint_angles_callback, 10)
         self.user_input_sub = self.create_subscription(String, '/user_input', self.user_input_callback, 10)
+        self.interaction_timer = self.create_timer(0.07, self.interaction_callback)
 
 
     def joint_angles_callback(self, msg):
@@ -261,15 +262,19 @@ class DemoRecorder(Node):
         # When no in feature learning stage, update position.
         self.curr_pos = curr_pos
 
-        if self.interactioin:
-            self.feature_trace.append(self.environment.raw_features(curr_pos))
+
+    def interaction_callback(self):
+        if self.interaction:
+            self.feature_trace.append(self.environment.raw_features(self.curr_pos))
 
 
     def user_input_callback(self, msg):
         if msg.data == "1":
+            self.get_logger().info('Starting data collection!')
             self.interaction = True
             self.feature_trace = []
         elif msg.data == "2":
+            self.get_logger().info('Stopping data collection. Processing feature trace!')
             self.interaction = False
             feature_data = np.squeeze(np.array(self.feature_trace))
             lo = 0
@@ -291,12 +296,14 @@ class DemoRecorder(Node):
             start_label = 0.0
             end_label = 1.0
             self.environment.learned_features[-1].add_data(feature_data, start_label, end_label)
+            self.get_logger().info('Done Processing!')
         elif msg.data == "3":
-            filename = "phys_demo_table.p"
+            self.get_logger().info('Saving!')
+            filename = "phys_demo_coffee.p"
             savefile = os.path.join(get_package_share_directory('ferl'), 'data', 'demonstrations', filename)
             with open(savefile, "wb") as f:
                 pickle.dump(self.environment.learned_features[-1].trace_list, f)
-            exit(0)
+                assert(1 == 2)
         
 
 def main(args=None):

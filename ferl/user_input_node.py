@@ -14,7 +14,7 @@ class UserInputNode(Node):
         print("Move the robot to a position ")
         msg = String()
         while rclpy.ok():
-            line = input("Press [1] to collect feature trace, [2] to stop collecting feature trace, and [q] to quit: ")
+            line = input("Press [1] to collect feature trace, [2] to stop collecting feature trace, and [3] to quit: ")
             msg.data = line
             self.publisher.publish(msg)
         rclpy.spin_once(self)
