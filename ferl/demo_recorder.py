@@ -236,216 +236,20 @@ class DemoRecorder(Node):
         self.feat_method = self.get_parameter("learner.type").value
         self.learner = PHRILearner(self.feat_method, self.environment, constants)
 
-        # Compliance parameters
-        self.Kp = 3.0  # Stiffness (inverse of compliance)
-        self.Kd = 0.1  # Damping
-
-        self.current_twist = TwistStamped()  # Keep track of the current twist for damping effect
-
-        # TF Buffer and Listener to get transformations
-        self.tf_buffer = Buffer()
-        self.tf_listener = TransformListener(self.tf_buffer, self)
-
-        # Set the rate to 500 Hz
-        self.wrench_timer = self.create_timer(1.0 / 500.0, self.timer_callback)
-
-        self.latest_wrench = None
-        self.new_plan_timer = None # self.create_timer(0.2, self.new_plan_callback)
-        self.begin_motion_timer = None
-        self.can_move = True
         self.interaction = False
-        self.initial_wrench = None
-        self.interaction_start = None
-        self.prev_pos = None
-        self.same_pos_count = 0
-        self.last_pos = None
-        self.data_timer = None
-
-        # Create a client for the ServoCommandType service
-        # self.switch_input_client = self.create_client(ServoCommandType, '/servo_node/switch_command_type')
-        # Call the service to enable TWIST command type
-        # self.enable_twist_command()
-
-        # self.zero_ft_client = self.create_client(Trigger, '/io_and_status_controller/zero_ftsensor')
-        # self.zero_ft_sensor()
-
-        # self.switch_controller_client = self.create_client(SwitchController, '/controller_manager/switch_controller')
-        # self.deactivate_controller('scaled_joint_trajectory_controller')
-
-        # Forward Velocity Controller
-        # self.activate_controller('forward_velocity_controller')
-
-        # Forward Position Controller
-        # self.activate_controller('forward_position_controller')
-
         self.user_input = None
         self.initialized = False
-        # TODO: Update
-        self.task_id = 0
-
+        
+        self.environment.new_learned_feature(self.nb_layers, self.nb_units)
+        # self.feature_traces = []
+        self.feature_trace = None
 
     def register_callbacks(self):
         """
         Set up all the subscribers and publishers needed.
         """
-        # self.traj_timer = self.create_timer(0.1, self.publish_trajectory)
-        # self.vel_pub = self.create_publisher(Float64MultiArray, '/forward_velocity_controller/commands', 10)
         self.joint_angles_sub = self.create_subscription(JointState, '/joint_states', self.joint_angles_callback, 10)
-        # self.force_torque_subscription = self.create_subscription(
-        #     WrenchStamped,
-        #     '/force_torque_sensor_broadcaster/wrench',
-        #     self.wrench_callback,
-        #     10)
-        self.twist_pub_ = self.create_publisher(TwistStamped, '/servo_node/delta_twist_cmds', 10)
-
-        # self.user_input_sub = self.create_subscription(String, '/user_input', self.user_input_callback, 10)
-        self.req_user_input_pub = self.create_publisher(String, '/req_user_input', 10)
-
-        # Create a client for the ServoCommandType service
-        # self.switch_input_client = self.create_client(ServoCommandType, '/servo_node/switch_command_type')
-        # self.enable_twist_command()
-
-
-    # def new_plan_callback(self):
-    #     if not self.interaction:
-    #         # self.zero_ft_sensor()
-    #         # self.can_move = True
-    #         self.finalize_demo_trajectory()
-
-    #         self.new_plan_timer = None
-
-
-    # def enable_twist_command(self):
-    #     if not self.switch_input_client.wait_for_service(timeout_sec=1.0):
-    #         self.get_logger().warn('Service not available, waiting again...')
-    #         return
-
-    #     request = ServoCommandType.Request()
-    #     request.command_type = ServoCommandType.Request.TWIST
-
-    #     future = self.switch_input_client.call_async(request)
-    #     rclpy.spin_until_future_complete(self, future)
-
-    #     if future.result() is not None and future.result().success:
-    #         self.get_logger().info('Switched to input type: TWIST')
-    #     else:
-    #         self.get_logger().warn('Could not switch input to: TWIST')
-
-
-    # def activate_controller(self, controller_name):
-    #     if not self.switch_controller_client.wait_for_service(timeout_sec=1.0):
-    #         self.get_logger().warn('Switch control sensor service not available, waiting again...')
-    #         return
-         
-    #     request = SwitchController.Request()
-    #     request.activate_controllers = [controller_name]
-
-    #     future = self.switch_controller_client.call_async(request)
-    #     rclpy.spin_until_future_complete(self, future)
-
-    #     if future.result() is not None and future.result().ok:
-    #         self.get_logger().info(f'Activated controller: {controller_name}')
-    #     else:
-    #         self.get_logger().warn(f'Could not activate controller: {controller_name}')
-
-
-    # def deactivate_controller(self, controller_name):
-    #     if not self.switch_controller_client.wait_for_service(timeout_sec=1.0):
-    #         self.get_logger().warn('Switch control service not available, waiting again...')
-    #         return
-        
-    #     request = SwitchController.Request()
-    #     request.deactivate_controllers = [controller_name]
-
-    #     future = self.switch_controller_client.call_async(request)
-    #     rclpy.spin_until_future_complete(self, future)
-
-    #     if future.result() is not None and future.result().ok:
-    #         self.get_logger().info(f'Deactivated controller: {controller_name}')
-    #     else:
-    #         self.get_logger().warn(f'Could not deactivate controller: {controller_name}')
-
-
-    # def zero_ft_sensor(self):
-    #     if not self.zero_ft_client.wait_for_service(timeout_sec=1.0):
-    #         self.get_logger().warn('Zero ft sensor service not available, waiting again...')
-    #         return
-        
-    #     request = Trigger.Request()
-    #     future = self.zero_ft_client.call_async(request)
-    #     rclpy.spin_until_future_complete(self, future)
-
-    #     if future.result() is not None and future.result().success:
-    #         self.get_logger().info('Zero ft sensor complete!')
-    #     else:
-    #         self.get_logger().warn("Could not zero ft sensor!")
-
-
-    # def wrench_callback(self, msg):
-    #     self.latest_wrench = msg
-
-
-    # def timer_callback(self):
-    #     if self.latest_wrench is not None and self.initialized:
-    #         try:
-    #             # Look up the transformation from ft_frame to tool0 and then tool0 to base_link
-    #             ft_to_tool0 = self.tf_buffer.lookup_transform('tool0', self.latest_wrench.header.frame_id, rclpy.time.Time())
-
-    #             # force = self.sub_init(self.latest_wrench.wrench.force , self.initial_wrench.wrench.force)
-    #             # torque = self.sub_init(self.latest_wrench.wrench.torque , self.initial_wrench.wrench.torque)
-
-    #             force = self.latest_wrench.wrench.force 
-    #             torque = self.latest_wrench.wrench.torque 
-
-    #             # Transform the force/torque from ft_frame to tool0
-    #             force = self.transform_vector(ft_to_tool0, force)
-    #             torque = self.transform_vector(ft_to_tool0, torque)
-
-    #             # Nullify force/torque readings with magnitude < 3
-    #             force = self.nullify_small_magnitudes(force, 10.0)
-    #             torque = self.nullify_small_magnitudes(torque, 10.0)
-
-    #             self.prev_interaction = self.interaction
-
-    #             if math.sqrt(force.x ** 2 + force.y ** 2 + force.z ** 2) < 10.0:
-    #                 # self.interaction = False
-    #                 # if self.prev_interaction != self.interaction:
-    #                     # self.new_plan_timer = self.create_timer(1.0, self.new_plan_callback)
-    #                 return
-
-    #             self.interaction = True
-    #             self.can_move = False
-    #             if self.interaction_start is None:
-    #                 self.interaction_start = time.time()
-
-    def run(self):
-        cnt = 0
-        task = self.task_id
-        while rclpy.ok():
-            self.get_logger().info("Type [yes/y/Y] if you're ready to record a demonstration.")
-            user_input_req = String()
-            user_input_req.data = "Type [yes/y/Y] if you're ready to record a demonstration."
-            self.req_user_input_pub.publish(user_input_req)
-            
-            rec, msg = rclpy.wait_for_message.wait_for_message(String, self, '/user_input')
-            line = msg.data
-            if (line is not "yes") and (line is not "Y") and (line is not "y"):
-                self.get_logger().info("WHY?.")
-            else:
-                self.interaction_start = time.time()
-                self.initialized = True
-                
-                self.get_logger().info("Type [quit/q/Q] if you're ready to stop recording.")
-                user_input_req = String()
-                user_input_req.data = "Type [quit/q/Q] if you're ready to stop recording."
-                self.req_user_input_pub.publish(user_input_req)
-                
-                rec, msg = rclpy.wait_for_message.wait_for_message(String, self, '/user_input')
-                line = msg.data
-                if (line is not "quit") and (line is not "Q") and (line is not "q"):
-                    self.get_logger().info("WHY?.")
-                else:
-                    self.finalize_demo_trajectory(cnt)
+        self.user_input_sub = self.create_subscription(String, '/user_input', self.user_input_callback, 10)
 
 
     def joint_angles_callback(self, msg):
@@ -453,100 +257,47 @@ class DemoRecorder(Node):
         Reads the latest position of the robot and publishes an
         appropriate torque command to move the robot to the target.
         """
-        if self.joint_names is None:
-            self.joint_names = np.roll(np.array(msg.name), 1)
-        if self.initial_joint_positions is None:
-            self.initial_joint_positions = np.roll(np.array(msg.position),1)
-            self.joint_positions = self.initial_joint_positions
-
         curr_pos = np.roll(np.array(msg.position),1).reshape(self.num_dofs,1)
-
-        if not self.initialized:
-            self.environment.env.GetRobots()[0].SetActiveDOFValues(curr_pos)
-            # Planner tells controller what plan to follow.
-            self.controller.set_trajectory(Trajectory([curr_pos], [0.0]))
-            self.initialized = True
 
         # When no in feature learning stage, update position.
         self.curr_pos = curr_pos
 
         if self.interactioin:
-            timestamp = time.time() - self.interaction_start
-            self.expUtil.update_tracked_traj(timestamp, curr_pos)
+            self.feature_trace.append(self.environment.raw_features(curr_pos))
 
 
-    def data_collected(self):
-        self.get_logger().info("HERE")
-        if np.linalg.norm(self.curr_pos - self.last_pos) < 1e-2:
+    def user_input_callback(self, msg):
+        if msg.data == "1":
+            self.interaction = True
+            self.feature_trace = []
+        elif msg.data == "2":
             self.interaction = False
-            self.finalize_demo_trajectory()
-        self.data_timer = None
+            feature_data = np.squeeze(np.array(self.feature_trace))
+            lo = 0
+            hi = feature_data.shape[0] - 1
+            q = False
+            while np.linalg.norm(feature_data[lo] - feature_data[lo + 1]) < 1e-5 and lo < hi:
+                if lo >= hi:
+                    q = True
+                    continue
+                lo += 1
+            while np.linalg.norm(feature_data[hi] - feature_data[hi - 1]) < 1e-5 and hi > 0:
+                if q:
+                    continue
+                hi -= 1
+            if q:
+                return
 
-    def finalize_demo_trajectory(self, demo_number):
-        self.get_logger().info("Final")
-
-        # Process and save the recording.
-        raw_demo = self.expUtil.tracked_traj[:,1:7]
-
-        # Trim ends of waypoints and create Trajectory.
-        lo = 0
-        hi = raw_demo.shape[0] - 1
-        while np.linalg.norm(raw_demo[lo] - raw_demo[lo + 1]) < 1e-6 and lo < hi:
-            # self.get_logger().info(f'lo-{lo}: {np.linalg.norm(raw_demo[lo] - raw_demo[lo + 1])}')
-            lo += 1
-        while np.linalg.norm(raw_demo[hi] - raw_demo[hi - 1]) < 1e-6 and hi > 0:
-            hi -= 1
-        waypts = raw_demo[lo:hi+1, :]
-        waypts_time = np.linspace(0.0, self.T, waypts.shape[0])
-        traj = Trajectory(waypts, waypts_time)
-
-        # Downsample/Upsample trajectory to fit desired timestep and T.
-        num_waypts = int(self.T / self.timestep) + 1
-        if num_waypts < len(traj.waypts):
-            demo = traj.downsample(int(self.T / self.timestep) + 1)
-        else:
-            demo = traj.upsample(int(self.T / self.timestep) + 1)
-
-        # Decide whether to save trajectory
-        openrave_utils.plotTraj(self.environment.env, self.environment.robot,
-        				self.environment.bodies, demo.waypts, color=[0, 0, 1])
-
-        demo_feat_trace = map_traj_to_raw_dim(self.environment, traj.waypts)
-
-        self.ready_for_input = True
-        self.get_logger().info("Type [yes/y/Y] if you're happy with the demonstration.")
-        user_input_req = String()
-        user_input_req.data = "Type [yes/y/Y] if you're happy with the demonstration."
-        self.req_user_input_pub.publish(user_input_req)
-        # line = input()
-        rec, msg = rclpy.wait_for_message.wait_for_message(String, self, '/user_input')
-        line = msg.data
-        if (line is not "yes") and (line is not "Y") and (line is not "y"):
-            self.get_logger().info("Not happy with demonstration. Terminating experiment.")
-        else:
-            # self.get_logger().info("Please type in the ID number (e.g. [0/1/2/...]).")
-            # user_input_req.data = "Please type in the ID number (e.g. [0/1/2/...])."
-            # self.req_user_input_pub.publish(user_input_req)
-            # # ID = input()
-            # rec, msg = rclpy.wait_for_message.wait_for_message(String, self, '/user_input')
-            # ID = msg.data
-            ID = demo_number
-            # self.get_logger().info("Please type in the task number (e.g. [0/1/2/...]).")
-            # user_input_req.data = "Please type in the task number (e.g. [0/1/2/...])."
-            # self.req_user_input_pub.publish(user_input_req)
-            # rec, msg = rclpy.wait_for_message.wait_for_message(String, self, '/user_input')
-            # task = msg.data
-            task = self.task_id
-            filename = "demo" + "_ID" + ID + "_task" + task + ".p"
-            savefile = os.path.join(get_package_share_directory('ferl'), 'data', 'demonstrations', 'demos', filename)
-            ft_filename = "ft_" + filename
-            ft_savefile = os.path.join(get_package_share_directory('ferl'), 'data', 'demonstrations', 'demos', ft_filename)
-            
+            feature_data = feature_data[lo:hi + 1, :][::-1]
+            start_label = 0.0
+            end_label = 1.0
+            self.environment.learned_features[-1].add_data(feature_data, start_label, end_label)
+        elif msg.data == "3":
+            filename = "phys_demo_table.p"
+            savefile = os.path.join(get_package_share_directory('ferl'), 'data', 'demonstrations', filename)
             with open(savefile, "wb") as f:
-                pickle.dump(demo, f)
-            with open(ft_savefile, "wb") as f:
-                pickle.dump(demo_feat_trace, f)
-            self.get_logger().info("Saved demonstration in {}.".format(savefile))
+                pickle.dump(self.environment.learned_features[-1].trace_list, f)
+            exit(0)
         
 
 def main(args=None):
@@ -564,7 +315,6 @@ def main(args=None):
         demo_recorder_node.destroy_node()
         rclpy.shutdown()
 
-    print("test: ", test)
 
 if __name__ == '__main__':
     main()
