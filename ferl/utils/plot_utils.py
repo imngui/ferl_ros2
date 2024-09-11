@@ -86,6 +86,8 @@ def get_coords_gt_cost(expert_env, parent_dir, gen=False, n_waypoints=10000):
 			features[feat][index] = expert_env.featurize_single(raw_waypts[index,:6], feat_idx[feat])
 
 	features = np.array(features).T
+	print("features: ", features.shape)
+	print("weights: ", np.array(expert_env.weights).shape)
 	gt_cost = np.matmul(features, np.array(expert_env.weights).reshape(-1,1))
 
 	return raw_waypts, gt_cost

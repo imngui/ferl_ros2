@@ -237,7 +237,7 @@ def generate_gt_data(feature):
     print("Finished environment")
     # create Learned_Feature
     # TODO: figure out how to get nb_layers and nb_units
-    environment.new_learned_feature(3, 128)
+    environment.new_learned_feature(2, 64)
     print("Generating data...")
     # generate training data
     if feature == "laptopmoving":
@@ -259,10 +259,13 @@ def generate_gt_data(feature):
             here = os.path.abspath(os.path.join(os.path.dirname( __file__ ), '../../'))
             np.savez(here+'/data/gtdata/data_{}{}.npz'.format(feature, lidx), x=train_raw, y=labels)
     else:
+        print("Feature: ", feature)
         train, labels = sample_data(environment, feature)
+        print("Feature: ", feature)
         # Create raw features
         train_raw = np.empty((0, 84), float)
         for dp in train:
+            print("Feature: ", feature)
             train_raw = np.vstack((train_raw, environment.raw_features(dp)))
         here = os.path.abspath(os.path.join(os.path.dirname( __file__ ), '../../'))
         np.savez(here+'/data/gtdata/data_{}.npz'.format(feature), x=train_raw, y=labels)
