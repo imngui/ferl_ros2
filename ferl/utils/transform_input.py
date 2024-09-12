@@ -3,6 +3,8 @@ import torch
 from rclpy.impl import rcutils_logger
 logger = rcutils_logger.RcutilsLogger(name="transform_input")
 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 
 def transform_input(x, trans_dict):
 	"""
@@ -34,7 +36,7 @@ def transform_input(x, trans_dict):
 	if trans_dict['9D_coffee']:
 		return x[:, 51:60]
 
-	x_transform = torch.empty((x.shape[0], 0), requires_grad=True, dtype=torch.float32)
+	x_transform = torch.empty((x.shape[0], 0), requires_grad=True, dtype=torch.float32).to(device)
 
 	# angles instead of radians use sin or cos
 	if not trans_dict['noangles']:

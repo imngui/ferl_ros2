@@ -55,19 +55,19 @@ class LearnedFeature(object):
 		# set default
 		self.final_model = 0
   
-		logger.info(f'cuda: {torch.cuda.is_available()}')
+		# logger.info(f'cuda: {torch.cuda.is_available()}')
 
 		# ---- Initialize Function approximators for each subspace ---- #
 		if 'subspace_heuristic' in self.LF_dict:
 			if self.LF_dict['subspace_heuristic']:
 				for sub_range in self.subspaces_list:
-					model = DNN(nb_layers, nb_units, sub_range[1] - sub_range[0])
+					model = DNN(nb_layers, nb_units, sub_range[1] - sub_range[0]).to(device)
 					self.models.append(model)  # Move model to device
 			else:
-					model = DNN(nb_layers, nb_units, self.subspaces_list[-1][1])
+					model = DNN(nb_layers, nb_units, self.subspaces_list[-1][1]).to(device)
 					self.models.append(model)
 		else:
-			model = DNN(nb_layers, nb_units, self.subspaces_list[-1][1])
+			model = DNN(nb_layers, nb_units, self.subspaces_list[-1][1]).to(device)
 			self.models.append(model)
 
 	def function(self, x, model=None, torchify=False, norm=False):
@@ -89,13 +89,13 @@ class LearnedFeature(object):
 			norm = True
 
 		# Torchify the input
-		x = self.input_torchify(x)
+		x = self.input_torchify(x).to(device)
 		# logger.info(f'learned_feat: {x.shape}')
 
 		# Transform the input
-		x = transform_input(x.detach().cpu(), self.LF_dict)
+		x = transform_input(x, self.LF_dict)
 		# logger.info(f'learned_feat transform: {x.shape}')
-		x = x
+		# x = x
 
 		if 'subspace_heuristic' in self.LF_dict:
 			if self.LF_dict['subspace_heuristic']: # transform to the model specific subspace input
@@ -314,21 +314,21 @@ class LearnedFeature(object):
 			output: 	scalar loss
 		"""
 		# arrays of the states
-		s_1s_array = batch['s1']
-		s_2s_array = batch['s2']
+		s_1s_array = batch['s1'].to(device)
+		s_2s_array = batch['s2'].to(device)
 
 		# arrays of the start & end labels
-		delta_1s_array = batch['l1']
-		delta_2s_array = batch['l2']
+		delta_1s_array = batch['l1'].to(device)
+		delta_2s_array = batch['l2'].to(device)
 
 		# label for classifiers
-		labels = batch['label']
+		labels = batch['label'].to(device)
 
-		weights = torch.ones(labels.shape)
-		weights = weights + (labels == 0.5)*torch.full(labels.shape, s_g_weight)
+		weights = torch.ones(labels.shape).to(device)
+		weights = weights + (labels == 0.5)*torch.full(labels.shape, s_g_weight).to(device)
 
-		s1_adds = (delta_1s_array * (self.max_labels[model_idx] - self.min_labels[model_idx])).reshape(-1,1)
-		s2_adds = (delta_2s_array * (self.max_labels[model_idx] - self.min_labels[model_idx])).reshape(-1, 1)
+		s1_adds = (delta_1s_array * (self.max_labels[model_idx] - self.min_labels[model_idx])).reshape(-1,1).to(device)
+		s2_adds = (delta_2s_array * (self.max_labels[model_idx] - self.min_labels[model_idx])).reshape(-1, 1).to(device)
 
 		# calculate test_loss  (with additive thing)
 		s1_logits = self.function(s_1s_array, model=model_idx) + s1_adds
