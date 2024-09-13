@@ -22,13 +22,13 @@ from utils.plot_utils import *
 # %%
 # Settings for the different cases
 feat_list_cases = [["coffee","table", "laptop"],["coffee","laptop", "table"], ["coffee","table", "proxemics"]]
-weights_cases = [[0.0, 10.0, 0.0], [0.0, 10.0, 0.0], [0.0, 10.0, 0.0]]
+weights_cases = [[10.0, 10.0, 0.0], [10.0, 10.0, 0.0], [0.0, 10.0, 0.0]]
 known_features_cases = [["coffee", "table"], ["coffee", "laptop"], ["coffee", "table"]]
 # known_features_cases = [["coffee", "proxemics"], ["coffee", "proxemics"], ["coffee", "proxemics"]]
 known_weights = [0., 0.]
 
-traces_file_cases = ["laptop", "table", "proxemics"]
-# traces_file_cases = ["table"]
+# traces_file_cases = ["laptop", "table", "proxemics"]
+traces_file_cases = ["coffee"]
 traces_idx = np.arange(10).tolist()
 
 # learned weights from pushes
@@ -48,8 +48,8 @@ timestep=0.5
 # LF_dict = {'bet_data':5, 'sin':False, 'cos':False, 'rpy':False, 'lowdim':False, 'norot':True,
 #            'noangles':True, '6D_laptop':False, '6D_human':False, '9D_coffee':False, 'EErot':False,
 #            'noxyz':False, 'subspace_heuristic':False}
-LF_dict = {'bet_data':5, 'sin':False, 'cos':False, 'rpy':False, 'lowdim':False, 'norot':True,
-           'noangles':True, '6D_laptop':False, '6D_human':False, '9D_coffee':False, 'EErot':False,
+LF_dict = {'bet_data':5, 'sin':False, 'cos':False, 'rpy':False, 'lowdim':False, 'norot':False,
+           'noangles':True, '6D_laptop':False, '6D_human':False, '9D_coffee':True, 'EErot':False,
            'noxyz':False, 'subspace_heuristic':False}
 
 # %% [markdown]
