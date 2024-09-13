@@ -33,7 +33,7 @@ p3 = [3.09983027, 5.1572305 ]
 learned_weights_from_pushes_cases = [p1, p2, p3]
 
 # traces_file_cases = ["laptop", "table", "proxemics"]
-feature = "table"
+feature = "laptop"
 
 # some settings for TrajOpt
 FEAT_RANGE = {'table':0.98, 'coffee':1.0, 'laptop':0.3, 'human':0.3, 'efficiency':0.22, 'proxemics': 0.3, 'betweenobjects': 0.2, 'learned_feature':1.0}
@@ -64,7 +64,7 @@ unknown_feature = LearnedFeature(2, 64, LF_dict)
 
 # for data_file in glob.glob(parent_dir + '/data/FERL_traces/traces_{}.p'.format(traces_file_cases[case-1])):
 sim_trajectory_list = []
-for data_file in glob.glob(parent_dir + '/data/demonstrations/sim_demo_{}.p'.format(feature)):
+for data_file in glob.glob(parent_dir + '/data/demonstrations/sim_demo_{}_1.p'.format(feature)):
     sim_trajectory_list = pickle.load(open( data_file, "rb" ))
 
 phys_trajectory_list = []
@@ -163,6 +163,8 @@ for n in range(2, 11):
 
 # Convert results to a DataFrame
 df = pd.DataFrame(mse_df)
+
+df.to_csv('laptop.csv')
 
 # Plot results using Seaborn
 sns.barplot(df, x="Num Features", y="MSE", hue="Demonstration Type")
