@@ -33,7 +33,7 @@ p3 = [3.09983027, 5.1572305 ]
 learned_weights_from_pushes_cases = [p1, p2, p3]
 
 # traces_file_cases = ["laptop", "table", "proxemics"]
-feature = "laptop"
+feature = "coffee"
 
 # some settings for TrajOpt
 FEAT_RANGE = {'table':0.98, 'coffee':1.0, 'laptop':0.3, 'human':0.3, 'efficiency':0.22, 'proxemics': 0.3, 'betweenobjects': 0.2, 'learned_feature':1.0}
@@ -45,8 +45,8 @@ timestep=0.5
 # LF_dict = {'bet_data':5, 'sin':False, 'cos':False, 'rpy':False, 'lowdim':False, 'norot':True,
 #            'noangles':True, '6D_laptop':False, '6D_human':False, '9D_coffee':False, 'EErot':False,
 #            'noxyz':False, 'subspace_heuristic':False}
-LF_dict = {'bet_data':5, 'sin':False, 'cos':False, 'rpy':False, 'lowdim':False, 'norot':True,
-           'noangles':True, '6D_laptop':False, '6D_human':False, '9D_coffee':False, 'EErot':False,
+LF_dict = {'bet_data':5, 'sin':False, 'cos':False, 'rpy':False, 'lowdim':False, 'norot':False,
+           'noangles':True, '6D_laptop':False, '6D_human':False, '9D_coffee':True, 'EErot':False,
            'noxyz':False, 'subspace_heuristic':False}
 
 # Step 0: Create environment with known feature & initialize learned feature
@@ -121,13 +121,13 @@ for n in range(2, 11):
         sim_env.feature_list.append('learned_feature')
         sim_env.num_features += 1
         sim_env.feature_func_list.append(sim_unknown_feature.function)
-        sim_env.weights = p2
+        sim_env.weights = p1
 
         phys_env.learned_features.append(phys_unknown_feature)
         phys_env.feature_list.append('learned_feature')
         phys_env.num_features += 1
         phys_env.feature_func_list.append(phys_unknown_feature.function)
-        phys_env.weights = p2
+        phys_env.weights = p1
 
         # Compute learned feature MSE for simulated environment
         sim_features = np.array([[sim_unknown_feature.function(raw_waypts[i], norm=True) 
