@@ -246,83 +246,6 @@ class Ferl(Node):
         self.can_move = True
         self.initialized = False
 
-        self.switch_controller_client = self.create_client(SwitchController, '/controller_manager/switch_controller')
-        self.deactivate_controller('scaled_joint_trajectory_controller')
-
-        # Forward Velocity Controller
-        self.activate_controller('forward_velocity_controller')
-        
-        # Create a client for the ServoCommandType service
-        self.switch_input_client = self.create_client(ServoCommandType, '/servo_node/switch_command_type')
-        # Call the service to enable TWIST command type
-        self.enable_twist_command()
-
-
-    def activate_controller(self, controller_name):
-        if not self.switch_controller_client.wait_for_service(timeout_sec=1.0):
-            self.get_logger().warn('Switch control sensor service not available, waiting again...')
-            return
-         
-        request = SwitchController.Request()
-        request.activate_controllers = [controller_name]
-
-        future = self.switch_controller_client.call_async(request)
-        rclpy.spin_until_future_complete(self, future)
-
-        if future.result() is not None and future.result().ok:
-            self.get_logger().info(f'Activated controller: {controller_name}')
-        else:
-            self.get_logger().warn(f'Could not activate controller: {controller_name}')
-
-
-    def deactivate_controller(self, controller_name):
-        if not self.switch_controller_client.wait_for_service(timeout_sec=1.0):
-            self.get_logger().warn('Switch control service not available, waiting again...')
-            return
-        
-        request = SwitchController.Request()
-        request.deactivate_controllers = [controller_name]
-
-        future = self.switch_controller_client.call_async(request)
-        rclpy.spin_until_future_complete(self, future)
-
-        if future.result() is not None and future.result().ok:
-            self.get_logger().info(f'Deactivated controller: {controller_name}')
-        else:
-            self.get_logger().warn(f'Could not deactivate controller: {controller_name}')
-            
-    
-    def enable_twist_command(self):
-        if not self.switch_input_client.wait_for_service(timeout_sec=1.0):
-            self.get_logger().warn('Enable twist command service not available, waiting again...')
-            return
-
-        request = ServoCommandType.Request()
-        request.command_type = ServoCommandType.Request.TWIST
-
-        future = self.switch_input_client.call_async(request)
-        rclpy.spin_until_future_complete(self, future)
-        
-        if future.result() is not None and future.result().success:
-            self.get_logger().info('Switched to input type: TWIST')
-        else:
-            self.get_logger().warn('Could not switch input to: TWIST')
-            
-            
-    def zero_ft_sensor(self):
-        if not self.zero_ft_client.wait_for_service(timeout_sec=1.0):
-            self.get_logger().warn('Zero ft sensor service not available, waiting again...')
-            return
-        
-        request = Trigger.Request()
-        future = self.zero_ft_client.call_async(request)
-        rclpy.spin_until_future_complete(self, future)
-
-        if future.result() is not None and future.result().success:
-            self.get_logger().info('Zero ft sensor complete!')
-        else:
-            self.get_logger().warn("Could not zero ft sensor!")
-
 
     def new_plan_callback(self):
         if self.new_plan:
@@ -457,50 +380,6 @@ class Ferl(Node):
         
     def wrench_callback(self, msg):
         self.latest_wrench = msg
-
-    # def interaction_callback(self, msg):
-    #     self.interaction = msg.data
-    #     self.can_move = not msg.data
-    #     if self.interaction:
-    #         self.get_logger().info('Interaction started')
-    #         self.cmd = np.zeros((self.num_dofs, self.num_dofs))
-    #         # self.controller.set_trajectory(Trajectory([curr_pos], [0.0]))
-    #         joint_vel = np.array([self.cmd[i][i] for i in range(len(self.joint_names))]) 
-            
-    #         # Float64MultiArray
-    #         traj_msg = Float64MultiArray()
-    #         traj_msg.data = joint_vel
-    #         self.vel_pub.publish(traj_msg)
-    #     else:
-    #         self.get_logger().info('Interaction not started')
-    
-    # def demo_callback(self, msg):
-    #     # Convert the message to interaction data in the form of torques.
-    #     self.interaction_data = []
-    #     self.interaction_time = []
-    #     points = []
-    #     for point in msg.points:
-    #         self.interaction_data.append(np.roll(np.array(point.effort), -1)) # TODO are the joints in the right order???
-    #         self.interaction_time.append(point.time_from_start._sec) #TODO is this the right time?
-    #         points.append(np.roll(np.array(point.positions), -1))
-    #     lo = 0
-    #     hi = len(self.interaction_data) - 1
-    #     while np.linalg.norm(self.interaction_data[lo] - self.interaction_data[lo + 1]) < 1e-5 and lo < hi:
-    #         lo += 1
-    #     while np.linalg.norm(self.interaction_data[hi] - self.interaction_data[hi - 1]) < 1e-5 and hi > 0:
-    #         hi -= 1
-    #     self.get_logger().info(f'torque lo: {lo}')
-    #     self.get_logger().info(f'torque hi: {hi}')
-    #     self.interaction_data = self.interaction_data[lo:hi + 1]
-    #     self.interaction_point = points[hi+1]
-    #     self.get_logger().info(f'torque: {self.interaction_data[0]}')
-    #     self.interaction_mode = True
-    #     self.controller.set_trajectory(Trajectory([self.interaction_point], [0.0]))
-    #     # TODO: Let controller move to interaction point while learning
-
-    #     self.timestamp = time.time() - self.controller.path_start_T
-    #     if not self.learning:
-    #         self.check_interaction()
             
     def traj_to_raw(self, traj):
         raw_data = []
@@ -515,8 +394,6 @@ class Ferl(Node):
         return raw_traj_data
 
     def check_interaction(self):
-        # return
-        # curr_torque = self.interaction_data[0] if len(self.interaction_data) > 0 else np.zeros((self.num_dofs, self.num_dofs))
         curr_torque = self.curr_torque        
         
         if self.interaction:
@@ -585,30 +462,6 @@ class Ferl(Node):
                                     start_label = 0.0
                                     end_label = 1.0
 
-
-                                    # traj = Trajectory(traj_data, np.linspace(0.0, self.T, len(traj_data)))
-                                    
-                                    # # Downsample/Upsample trajectory to fit desired timestep and T.
-                                    # num_waypts = int(self.T / self.timestep) + 1
-                                    # if num_waypts < len(traj.waypts):
-                                    #     demo = traj.downsample(int(self.T / self.timestep) + 1)
-                                    # else:
-                                    #     demo = traj.upsample(int(self.T / self.timestep) + 1)
-
-                                    # # Decide whether to save trajectory
-                                    # openrave_utils.plotTraj(self.environment.env, self.environment.robot,
-                                    #                         self.environment.bodies, demo.waypts, size=0.015, color=[0, 0, 1])
-
-                                    # self.get_logger().info("Would you like to label your start? Press ENTER if not or enter a number from 0-10")
-                                    # line = sys.stdin.readline()
-                                    # if line in [str(i) for i in range(11)]:
-                                    #     start_label = int(i) / 10.0
-
-                                    # self.get_logger().info("Would you like to label your goal? Press ENTER if not or enter a number from 0-10")
-                                    # line = sys.stdin.readline()
-                                    # if line in [str(i) for i in range(11)]:
-                                    #     end_label = int(i) / 10.0
-
                                     # Add the newly collected data.
                                     self.environment.learned_features[-1].add_data(feature_data, start_label, end_label)
                                 else:
@@ -628,10 +481,6 @@ class Ferl(Node):
                         if msg.data:
                             break
 
-                        # line = sys.stdin.readline()
-                        # if line == "yes" or line == "Y" or line == "y":
-                        #     break
-                    
                     # Compute new beta for the new feature.
                     beta_new = self.learner.learn_betas(self.traj, curr_torque, self.timestamp, [self.environment.num_features - 1])[0]
                     betas.append(beta_new)
@@ -639,8 +488,6 @@ class Ferl(Node):
                     # Move time forward to return to interaction position.
                     self.controller.path_start_T += (time.time() - feature_learning_timestamp)
 
-                # if self.feature_learning_mode:
-                #     self.
                 # We do no have misspecification now, so resume reward learning.
                 self.feature_learning_mode = False
                 
