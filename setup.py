@@ -34,6 +34,7 @@ setup(
             'xr_ferl = ferl.xr_ferl:main',
             'ferl = ferl.ferl:main',
             'ferl_init = ferl.ferl_init:main',
+            'feature_trace_manager = ferl.feature_trace_manager:main',
         ],
     },
 )

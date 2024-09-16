@@ -245,6 +245,8 @@ class Ferl(Node):
         self.begin_motion_timer = None
         self.can_move = True
         self.initialized = False
+        self.curr_torque = None
+        self.track_data_msg = Bool()
 
 
     def new_plan_callback(self):
@@ -258,8 +260,7 @@ class Ferl(Node):
             self.controller.set_trajectory(traj)
             self.controller.path_start_T = None
             self.reached_start = False
-            
-            
+                 
 
     def register_callbacks(self):
         """
@@ -270,7 +271,7 @@ class Ferl(Node):
         self.vel_trajectory_pub = self.create_publisher(JointTrajectory, '/scaled_vel_joint_trajectory_controller/joint_trajectory', 10)
         self.vel_pub = self.create_publisher(Float64MultiArray, '/forward_velocity_controller/commands', 10)
         self.joint_angles_sub = self.create_subscription(JointState, '/joint_states', self.joint_angles_callback, 10)
-        self.joint_currents_sub = self.create_subscription(JointState, '/joint_states', self.joint_currents_callback, 10)
+        self.joint_torque_sub = self.create_subscription(JointState, '/joint_torques', self.joint_torque_callback, 10)
         self.joint_current_timer = self.create_timer(0.01, self.check_interaction)
 
         self.info_pub = self.create_publisher(String, '/req_user_input', 10)
@@ -285,93 +286,26 @@ class Ferl(Node):
             10)
         
         # Set the rate to 500 Hz
-        self.wrench_timer = self.create_timer(1.0 / 500.0, self.timer_callback)
-        
+        # self.wrench_timer = self.create_timer(1.0 / 500.0, self.wrench_timer_callback)
         self.ready_for_ft_pub = self.create_publisher(Bool, '/feedback_request', 10)
-        self.zero_ft_client = self.create_client(Trigger, '/io_and_status_controller/zero_ftsensor')
-        self.zero_ft_sensor()
+        self.interaction_sub = self.create_subscription(Bool, '/interaction', self.interaction_callback, 10)
+        self.track_data_pub = self.create_publisher(Bool, '/track_data', 10)
+
         
-    def joint_currents_callback(self, msg):
+    def joint_torque_callback(self, msg):
         # Convert joint current to torque using UR5e torque constants
-        self.curr_torque = np.roll(np.array(msg.effort), 1) * [0.125, 0.125, 0.125, 0.092, 0.092, 0.092]
+        # self.curr_torque = np.roll(np.array(msg.effort), 1) * [0.125, 0.125, 0.125, 0.092, 0.092, 0.092]
+        self.curr_torque = msg.effort
+
+
+    def interaction_callback(self, msg):
+        self.interaction = msg.data
+        if self.interaction:
+            self.cmd = np.zeros((self.num_dofs, self.num_dofs))
+            if self.interaction_start is None:
+                self.interaction_start = time.time()
+
         
-    def timer_callback(self):
-        # return
-        if self.latest_wrench is not None and self.initialized:
-            try:
-                # Look up the transformation from ft_frame to tool0 and then tool0 to base_link
-                ft_to_tool0 = self.tf_buffer.lookup_transform('tool0', self.latest_wrench.header.frame_id, rclpy.time.Time())
-
-                force = self.latest_wrench.wrench.force 
-                torque = self.latest_wrench.wrench.torque 
-
-                # Transform the force/torque from ft_frame to tool0
-                force = self.transform_vector(ft_to_tool0, force)
-                torque = self.transform_vector(ft_to_tool0, torque)
-
-                # Nullify force/torque readings with magnitude < 3
-                force = self.nullify_small_magnitudes(force, 10.0)
-                torque = self.nullify_small_magnitudes(torque, 10.0)
-
-                self.prev_interaction = self.interaction
-
-                if math.sqrt(force.x ** 2 + force.y ** 2 + force.z ** 2) < 10.0:
-                    self.interaction = False
-                    self.can_move = True
-                    return
-
-                self.interaction = True
-                self.can_move = False
-                self.cmd = np.zeros((self.num_dofs, self.num_dofs))
-                if self.interaction_start is None:
-                    self.interaction_start = time.time()
-
-                # Compute the twist in ee frame
-                twist = TwistStamped()
-                twist.header.stamp = self.get_clock().now().to_msg()
-                twist.header.frame_id = 'tool0'
-
-                twist.twist.linear.x = (1 / self.Kp) * force.x - self.Kd * self.current_twist.twist.linear.x
-                twist.twist.linear.y = (1 / self.Kp) * force.y - self.Kd * self.current_twist.twist.linear.y
-                twist.twist.linear.z = (1 / self.Kp) * force.z - self.Kd * self.current_twist.twist.linear.z
-
-                twist.twist.angular.x = (1 / self.Kp) * torque.x - self.Kd * self.current_twist.twist.angular.x
-                twist.twist.angular.y = (1 / self.Kp) * torque.y - self.Kd * self.current_twist.twist.angular.y
-                twist.twist.angular.z = (1 / self.Kp) * torque.z - self.Kd * self.current_twist.twist.angular.z
-
-                # Update the current twist for the next callback
-                self.current_twist = twist
-
-                # Publish the computed twist
-                self.twist_pub_.publish(twist)
-
-            except (LookupException, ConnectivityException, ExtrapolationException) as e:
-                self.get_logger().warn(f"Could not transform wrench to base_link frame: {str(e)}")
-
-
-    def transform_vector(self, transform, vector):
-        # Extract rotation (quaternion) and translation from TransformStamped
-        q = transform.transform.rotation
-
-        # Convert quaternion to rotation matrix using scipy
-        r = R.from_quat([q.x, q.y, q.z, q.w])
-
-        # Convert Vector3 to numpy array for easy multiplication
-        vector_np = np.array([vector.x, vector.y, vector.z])
-
-        # Apply the rotation
-        rotated_vector = r.apply(vector_np)
-
-        # Return the transformed vector as a Vector3
-        return Vector3(x=rotated_vector[0], y=rotated_vector[1], z=rotated_vector[2])
-
-
-    def nullify_small_magnitudes(self, vector, threshold):
-        magnitude = math.sqrt(vector.x ** 2 + vector.y ** 2 + vector.z ** 2)
-        if magnitude < threshold or np.isnan(magnitude):
-            return Vector3(x=0.0, y=0.0, z=0.0)
-        else:
-            return vector
 
     def publish_user_info(self, message):
         msg = String()
@@ -392,8 +326,21 @@ class Ferl(Node):
         for traj_pt in traj_data:
             raw_traj_data.append(self.environment.raw_features(traj_pt))
         return raw_traj_data
+    
+    # def traj_to_data(self, f64ma_msg):
+        # traj_data = []
+        # d = f64ma_msg.data
+        # for i in range(len(d)):
+    
+
 
     def check_interaction(self):
+        if self.controller.path_start_T is None:
+            # self.get_logger().info('No Path Start!!')
+            return
+        
+        if self.curr_torque is None:
+            return
         curr_torque = self.curr_torque        
         
         if self.interaction:
@@ -418,10 +365,10 @@ class Ferl(Node):
                     self.publish_user_info("The robot does not understand the input!")
                     self.feature_learning_mode = True
                     feature_learning_timestamp = time.time()
-                    input_size = len(self.environment.raw_features(curr_torque))
+                    # input_size = len(self.environment.raw_features(curr_torque))
                     self.environment.new_learned_feature(self.nb_layers, self.nb_units)
                     while True:
-                        np.zeros((self.num_dofs, self.num_dofs))
+                        self.cmd = np.zeros((self.num_dofs, self.num_dofs))
                         # Keep asking for input until we are confident.
                         for i in range(self.N_QUERIES):
                             np.zeros((self.num_dofs, self.num_dofs))
@@ -430,17 +377,26 @@ class Ferl(Node):
                             self.feature_data = []
 
                             # Request the person to place the robot in a low feature value state.
-                            self.get_logger().info("Place the robot in a low feature value state and press ENTER when ready.")
-                            self.publish_user_info("Place the robot in a low feature value state and press ENTER when ready.")
+                            self.get_logger().info("Place the robot in a high feature value state and press ENTER when ready.")
+                            self.publish_user_info("Place the robot in a high feature value state and press ENTER when ready.")
                             rec, msg = rclpy.wait_for_message.wait_for_message(String, self, '/user_input')
                             if rec:
                                 self.track_data = True
+                                # self.track_data_msg.data = True
+                                # self.track_data_pub.publish(self.track_data_msg)
                                 
-                                self.get_logger().info("Move the robot to a high feature value state and press ENTER when ready.")
-                                self.publish_user_info("Move the robot to a high feature value state and press ENTER when ready.")
-                                rec, msg = rclpy.wait_for_message.wait_for_message(String, self, '/user_input')
+                                self.get_logger().info("Move the robot to a low feature value state and press ENTER when ready.")
+                                self.publish_user_info("Move the robot to a low feature value state and press ENTER when ready.")
+                                rec, msg = rclpy.wait_for_message.wait_for_message(JointTrajectory, self, '/feature_trace')
                                 if rec:
                                     self.track_data = False
+                                    # self.track_data_msg.data = False
+                                    # self.track_data_pub.publish(self.track_data_msg)
+
+                                    # traj_data = ros2_utils.traj_msg_to_data(msg, self.joint_names)
+                                    traj_data = msg.data
+                                    self.get_logger().info(f'traj_data: {len(traj_data)}')
+                                    self.feature_data = self.traj_data_to_raw(traj_data)
                                                                         
                                     # Pre-process the recorded data before training.
                                     feature_data = np.squeeze(np.array(self.feature_data))
@@ -541,18 +497,23 @@ class Ferl(Node):
             self.controller.set_trajectory(traj)
             self.initialized = True
             
-        if self.feature_learning_mode:
-            self.cmd = np.zeros((self.num_dofs, self.num_dofs))
+        # if self.feature_learning_mode:
+        #     self.cmd = np.zeros((self.num_dofs, self.num_dofs))
             
-            if self.track_data == True:
-                self.feature_data.append(self.environment.raw_features(curr_pos))
+        #     if self.track_data == True:
+        #         self.feature_data.append(self.environment.raw_features(curr_pos))
+        #         self.get_logger().info(f'feature_data: {len(self.feature_data)}')
                 
-            return
+        #     return
         
         # When no in feature learning stage, update position.
         self.curr_pos = curr_pos
         self.curr_vel = np.roll(np.array(msg.velocity),1).reshape(self.num_dofs,1)
         self.environment.update_curr_pos(curr_pos)
+
+        if self.feature_learning_mode:
+            self.cmd = np.zeros((self.num_dofs, self.num_dofs))
+            return
 
         # Update cmd from PID based on current position.
         self.cmd = self.controller.get_command(self.curr_pos, self.curr_vel)
