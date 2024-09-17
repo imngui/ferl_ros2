@@ -641,6 +641,7 @@ class XRFerl(Node):
                 self.controller.path_start_T = self.old_path_start_T
             self.reached_start = True
             self.controller.set_trajectory(self.traj)
+            self.new_plan = False
         if self.controller.path_end_T is not None:
             self.reached_goal = True
 
