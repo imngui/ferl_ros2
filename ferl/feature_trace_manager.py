@@ -37,12 +37,12 @@ class FeatureTraceManager(Node):
     def user_input_callback(self, msg):
         if msg.data == "1":
             self.track_data = True
-            self.feature_trace_msg.data = []
+            self.feature_trace_msg.points = []
             self.interaction_start_time = time.time()
         if msg.data == "2":
             self.track_data = False
             self.feature_trace_pub.publish(self.feature_trace_msg)
-            self.feature_trace_msg.data = []
+            self.feature_trace_msg.points= []
             self.interaction_start_time = None
 
 

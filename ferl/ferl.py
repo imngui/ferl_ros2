@@ -260,6 +260,7 @@ class Ferl(Node):
             self.controller.set_trajectory(traj)
             self.controller.path_start_T = None
             self.reached_start = False
+            # self.new_plan = False
                  
 
     def register_callbacks(self):
@@ -356,9 +357,24 @@ class Ferl(Node):
                 self.get_logger().info(f'Learning')
                 self.publish_user_info("Learning")
                 # Check if betas are above CONFIDENCE_THRESHOLD.
-                betas = self.learner.learn_betas(self.traj, self.interaction_data[0], self.interaction_time[0])
+                torque = None
+                torque_time = None
+                for i in range(0, len(self.interaction_data)):
+                    if np.sum(self.interaction_data[i]) > 0.0:
+                        torque = self.interaction_data[i]
+                        torque_time = self.interaction_time[i]
+                        # torque_time = time_space[i]
+                        break
+                
+                if torque is not None:
+                    self.get_logger().info(f"Torque: {torque}")
+                    betas = self.learner.learn_betas(self.traj, torque, torque_time)
+                else:
+                    return
+                # betas = self.learner.learn_betas(self.traj, self.interaction_data[0], self.interaction_time[0])
                 # for beta in betas:
                 self.get_logger().info(f'betas: {betas}')
+                self.get_logger().info(f'max_betas: {max(betas)} < {self.CONFIDENCE_THRESHOLD}')
                 if max(betas) < self.CONFIDENCE_THRESHOLD:
                     # We must learn a new feature that passes CONFIDENCE_THRESHOLD before resuming.
                     self.get_logger().info("The robot does not understand the input!")
@@ -382,35 +398,42 @@ class Ferl(Node):
                             rec, msg = rclpy.wait_for_message.wait_for_message(String, self, '/user_input')
                             if rec:
                                 self.track_data = True
-                                # self.track_data_msg.data = True
-                                # self.track_data_pub.publish(self.track_data_msg)
                                 
                                 self.get_logger().info("Move the robot to a low feature value state and press ENTER when ready.")
                                 self.publish_user_info("Move the robot to a low feature value state and press ENTER when ready.")
                                 rec, msg = rclpy.wait_for_message.wait_for_message(JointTrajectory, self, '/feature_trace')
                                 if rec:
                                     self.track_data = False
-                                    # self.track_data_msg.data = False
-                                    # self.track_data_pub.publish(self.track_data_msg)
 
                                     # traj_data = ros2_utils.traj_msg_to_data(msg, self.joint_names)
-                                    traj_data = msg.data
-                                    self.get_logger().info(f'traj_data: {len(traj_data)}')
+                                    # traj = ros2_utils.traj_msg_to_trajectory(msg, self.joint_names)
+                                    traj_data, traj_times = ros2_utils.traj_msg_to_data(msg, self.joint_names)
+                                    # traj.downsample(60)
+                                    # traj_data = traj.waypts
+                                    # self.get_logger().info(f'traj_data: {len(traj_data)}')
+                                    # traj = Trajectory()
+
                                     self.feature_data = self.traj_data_to_raw(traj_data)
                                                                         
                                     # Pre-process the recorded data before training.
                                     feature_data = np.squeeze(np.array(self.feature_data))
+                                    feature_times = np.squeeze(np.array(traj_times))
                                     lo = 0
                                     hi = feature_data.shape[0] - 1
                                     # TODO: Figure out if 1e-5 is an appropriate 
-                                    while np.linalg.norm(feature_data[lo] - feature_data[lo + 1]) < 1e-5 and lo < hi:
+                                    while np.linalg.norm(feature_data[lo] - feature_data[lo + 1]) < 1e-3 and lo < hi:
                                         # self.get_logger().info(f'tol: {np.linalg.norm(feature_data[lo] - feature_data[lo + 1])}, pos: {feature_data[lo]}')
                                         lo += 1
-                                    while np.linalg.norm(feature_data[hi] - feature_data[hi - 1]) < 1e-5 and hi > 0:
+                                    while np.linalg.norm(feature_data[hi] - feature_data[hi - 1]) < 1e-3 and hi > 0:
                                         hi -= 1
                                     self.get_logger().info(f'torque lo: {lo}')
                                     self.get_logger().info(f'torque hi: {hi}')
                                     feature_data = feature_data[lo:hi + 1, :][::-1]
+                                    times = feature_times[lo:hi + 1][::-1]
+                                    traj = Trajectory(feature_data[:, :6], times)
+                                    ds_traj = traj.downsample(60)
+                                    ds_traj_ft = np.array(self.traj_to_raw(ds_traj))
+                                    self.get_logger().info(f'FT len: {ds_traj_ft.shape}')
                                     self.get_logger().info("Collected {} demonstrations out of {}.".format(i+1, self.N_QUERIES))
                                     self.publish_user_info("Collected {} demonstrations out of {}.".format(i+1, self.N_QUERIES))
 
@@ -419,13 +442,22 @@ class Ferl(Node):
                                     end_label = 1.0
 
                                     # Add the newly collected data.
-                                    self.environment.learned_features[-1].add_data(feature_data, start_label, end_label)
+                                    # self.environment.learned_features[-1].add_data(feature_data, start_label, end_label)
+                                    self.environment.learned_features[-1].add_data(ds_traj_ft, start_label, end_label)
                                 else:
                                     self.get_logger().info("Failed to get feature trace. Retrying...")
                                     self.publish_user_info("Failed to get feature trace. Retrying...")
+
+                        filename = "phys_demo_laptop_n.p"
+                        savefile = os.path.join(get_package_share_directory('ferl'), 'data', 'demonstrations', filename)
+                        with open(savefile, "wb") as f:
+                            pickle.dump(self.environment.learned_features[-1].trace_list, f)
                             
                         # Train new feature with data of increasing "goodness".
                         self.environment.learned_features[-1].train()
+
+                        b = self.learner.learn_betas(self.traj, torque, torque_time)
+                        self.get_logger().info(f'betas: {b}')
 
                         # Check if we are happy with the input.
                         self.get_logger().info("Are you happy with the training? (y/n)")
@@ -433,8 +465,8 @@ class Ferl(Node):
                         satisfied_msg = Bool()
                         satisfied_msg.data = True
                         self.satisfied_publisher.publish(satisfied_msg)
-                        rec, msg = rclpy.wait_for_message.wait_for_message(Bool, self, '/user_input')
-                        if msg.data:
+                        rec, msg = rclpy.wait_for_message.wait_for_message(String, self, '/user_input')
+                        if msg.data == "n" or msg.data == "no":
                             break
 
                     # Compute new beta for the new feature.
@@ -522,6 +554,7 @@ class Ferl(Node):
         if self.controller.path_start_T is not None:
             self.reached_start = True
             self.controller.set_trajectory(self.traj)
+            self.new_plan = False
         if self.controller.path_end_T is not None:
             self.reached_goal = True
 

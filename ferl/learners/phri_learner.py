@@ -86,13 +86,16 @@ class PHRILearner(object):
             u_h_star = np.reshape(u_h_opt.x, (6, 1))
 
             waypts_deform_p = traj.deform(u_h_star, t, self.alpha, self.n).waypts
+            # logger.info(f'waypts: {traj.waypts}')
+            # logger.info(f'def waypts: {traj_deform.waypts}')
+            # logger.info(f'diff: {traj.waypts - traj_deform.waypts}')
             H_features = self.environment.featurize(waypts_deform_p)
             Phi_u_star = np.array([sum(x) for x in H_features])
-            # logger.info(f"Phi_p: {Phi_p[i]}")
-            # logger.info(f"Phi_p_H: {Phi_u_star}")
+            logger.info(f"Phi_p: {Phi_p[i]}")
+            logger.info(f"Phi_p_H: {Phi_u_star}")
 
-            # logger.info(f"u_h: {u_h, np.linalg.norm(u_h)}")
-            # logger.info(f"u_h_star: {u_h_star, np.linalg.norm(u_h_star)}")
+            logger.info(f"u_h: {u_h, np.linalg.norm(u_h)}")
+            logger.info(f"u_h_star: {u_h_star, np.linalg.norm(u_h_star)}")
 
             # Compute beta based on deviation from optimal action.
             beta_norm = 1.0 / np.linalg.norm(u_h_star) ** 2
@@ -134,9 +137,9 @@ class PHRILearner(object):
         else:
             raise Exception('Learning method {} not implemented.'.format(self.feat_method))
 
-        # logger.info(f"Here is the update: {update}")
-        # logger.info(f"Here are the old weights: {self.environment.weights}")
-        # logger.info(f"Here are the new weights: {curr_weight}")
+        logger.info(f"Here is the update: {update}")
+        logger.info(f"Here are the old weights: {self.environment.weights}")
+        logger.info(f"Here are the new weights: {curr_weight}")
         self.environment.weights = np.maximum(curr_weight, np.zeros(curr_weight.shape))
 
     def all_update(self, update):

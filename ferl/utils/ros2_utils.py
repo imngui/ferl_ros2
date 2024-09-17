@@ -56,16 +56,18 @@ def traj_msg_to_trajectory(msg, joint_names):
 	traj = []
 	times = []
 	for point in msg.points:
-		traj.append(np.array(point.positions))
+		traj.append(np.roll(np.array(point.positions), 1))
 		times.append(point.time_from_start.sec)
 	ret_traj = Trajectory(traj, times)
 	return ret_traj
 
 def traj_msg_to_data(msg, joint_names):
 	traj_data = []
+	times = []
 	for point in msg.points:
-		traj_data.append(np.array(point.positions))
-	return traj_data
+		traj_data.append(np.roll(np.array(point.positions), 1))
+		times.append(point.time_from_start.sec)
+	return traj_data, times
 
 def waypts_to_PoseArrayMsg(cart_waypts):
 	"""

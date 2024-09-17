@@ -5,10 +5,10 @@ ferl_node:
             model_filename: "gen3"
             object_centers: 
                 - "HUMAN_CENTER:[-0.2,-0.5,0.6]"
-                - "LAPTOP_CENTER:[-0.8,0.0,0.0]"
+                - "LAPTOP_CENTER:[-0.65,0.0,0.0]"
                 # HUMAN_CENTER: [-0.2,-0.5,0.6]
                 # LAPTOP_CENTER: [0.0,-0.8,0.0]
-            feat_list: ["laptop"]
+            feat_list: ["table"]
             feat_weights: [0.0]
             # start: [104.2, 137.5, 183.8, 101.8, 224.2, 126.1, 310.8] # must adhere to joint limits
             # start: [4.5, 0.0, 0.0, 0.0, 1.5708, 0.0]
@@ -16,7 +16,7 @@ ferl_node:
             start: [0.698132, -2.0944, -1.0472, -3.14159, -0.837758, 0.0]
             goal: [-0.698132, -1.5973253, -1.6891297, -3.0077259, -2.23402, -0.008028515]
             # goal_pose: None #[-0.46513, 0.29041, 0.69497]
-            T: 20.0
+            T: 60.0
             timestep: 0.5
             save_dir: "/data/features/"
             # These constants have been tuned for the task tested.
@@ -30,7 +30,7 @@ ferl_node:
                 - "efficiency:0.22"
                 - "proxemics:0.3"
                 - "betweenobjects:0.2"
-                - "learned_feature:1.0"
+                # - "learned_feature:1.0"
             LF_dict:
                 - "bet_data:5"
                 - "sin:False"
@@ -48,8 +48,8 @@ ferl_node:
                 - "9D_coffee:False"
                 - "subspace_heuristic:False"
             CONFIDENCE_THRESHOLD: 1.0
-            # N_QUERIES: 10
             N_QUERIES: 10
+            # N_QUERIES: 2
             nb_layers: 2
             nb_units: 64
 
