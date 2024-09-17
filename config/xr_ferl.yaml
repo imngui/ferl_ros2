@@ -8,7 +8,7 @@ xr_ferl_node:
                 - "LAPTOP_CENTER:[-0.65,0.0,0.0]"
                 # HUMAN_CENTER: [-0.2,-0.5,0.6]
                 # LAPTOP_CENTER: [0.0,-0.8,0.0]
-            feat_list: ["proxemics"]
+            feat_list: ["laptop"]
             feat_weights: [0.0]
             # start: [104.2, 137.5, 183.8, 101.8, 224.2, 126.1, 310.8] # must adhere to joint limits
             # start: [4.5, 0.0, 0.0, 0.0, 1.5708, 0.0]
@@ -30,7 +30,7 @@ xr_ferl_node:
                 - "efficiency:0.22"
                 - "proxemics:0.3"
                 - "betweenobjects:0.2"
-                - "learned_feature:1.0"
+                # - "learned_feature:1.0"
             LF_dict:
                 - "bet_data:5"
                 - "sin:False"
@@ -48,8 +48,8 @@ xr_ferl_node:
                 - "9D_coffee:False"
                 - "subspace_heuristic:False"
             CONFIDENCE_THRESHOLD: 1.0
-            # N_QUERIES: 10
-            N_QUERIES: 20
+            N_QUERIES: 10
+            # N_QUERIES: 20
             nb_layers: 2
             nb_units: 64
 

@@ -9,6 +9,7 @@ import sys, select, os
 import time
 import torch
 import pickle
+import threading
 
 import rclpy.wait_for_message
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
@@ -249,6 +250,24 @@ class Ferl(Node):
         self.track_data_msg = Bool()
 
 
+    def activate_controller(self, controller_name):
+        if not self.switch_controller_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warn('Switch control sensor service not available, waiting again...')
+            return
+         
+        request = SwitchController.Request()
+        request.activate_controllers = [controller_name]
+
+        future = self.switch_controller_client.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+        self.get_logger().info('CONTROLLER')
+        return
+        # if future.result() is not None and future.result().ok:
+        #     self.get_logger().info(f'Activated controller: {controller_name}')
+        # else:
+        #     self.get_logger().warn(f'Could not activate controller: {controller_name}')
+
+
     def new_plan_callback(self):
         if self.new_plan:
             self.can_move = True
@@ -291,6 +310,7 @@ class Ferl(Node):
         self.ready_for_ft_pub = self.create_publisher(Bool, '/feedback_request', 10)
         self.interaction_sub = self.create_subscription(Bool, '/interaction', self.interaction_callback, 10)
         self.track_data_pub = self.create_publisher(Bool, '/track_data', 10)
+        self.switch_controller_client = self.create_client(SwitchController, '/controller_manager/switch_controller')
 
         
     def joint_torque_callback(self, msg):
@@ -305,6 +325,9 @@ class Ferl(Node):
             self.cmd = np.zeros((self.num_dofs, self.num_dofs))
             if self.interaction_start is None:
                 self.interaction_start = time.time()
+                # t = threading.Thread(target=self.activate_controller('forward_position_controller'))
+                # t.start()
+                # self.activate_controller('forward_position_controller')
 
         
 
@@ -478,6 +501,7 @@ class Ferl(Node):
 
                 # We do no have misspecification now, so resume reward learning.
                 self.feature_learning_mode = False
+                # self.activate_controller('forward_velocity_controller')
                 
                 # learn reward.
                 self.get_logger().info('Learning weights')

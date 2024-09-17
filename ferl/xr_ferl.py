@@ -409,7 +409,7 @@ class XRFerl(Node):
     def traj_data_to_raw(self, traj_data):
         raw_traj_data = []
         for traj_pt in traj_data:
-            raw_traj_data.append(self.environment.raw_features(traj_pt))
+            raw_traj_data.append(self.environment.raw_features(np.array(traj_pt)))
         return raw_traj_data
 
     def check_interaction(self):
@@ -476,7 +476,7 @@ class XRFerl(Node):
                                 # Map it to raw features
                                 # self.feature_data = self.traj_to_raw(traj_data)
 
-                                traj_data = ros2_utils.traj_msg_to_data(msg, self.joint_names)
+                                traj_data, _ = ros2_utils.traj_msg_to_data(msg, self.joint_names)
                                 # for pnt in traj_data:
                                 #     self.get_logger().info(f'pos: {pnt}')
                                 self.feature_data = self.traj_data_to_raw(traj_data)

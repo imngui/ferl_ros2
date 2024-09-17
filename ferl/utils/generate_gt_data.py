@@ -232,7 +232,7 @@ def generate_gt_data(feature):
     if feature == "between_objects":
         objects = {'OBJECT1': [-0.6,-0.2,0.0], 'OBJECT2': [-0.2,0.0,0.0]}
     else:
-        objects = {'HUMAN_CENTER': [-0.2,-0.5,0.6], 'LAPTOP_CENTER': [-0.5, 0.0, 0.0]}
+        objects = {'HUMAN_CENTER': [-0.2,-0.5,0.6], 'LAPTOP_CENTER': [-0.65, 0.0, 0.0]}
     environment = Environment("jaco_dynamics", np.array([0.0, -1.5708, 0, -1.5708, 0, 0]), objects, [feature], [1.0], np.array([0.0]), LF_dict, viewer=False)
     print("Finished environment")
     # create Learned_Feature

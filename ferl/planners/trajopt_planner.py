@@ -162,7 +162,7 @@ class TrajoptPlanner(object):
 				z = self.environment.feature_func_list[feat_idx](self.environment.raw_features(inter_waypt).float(), torchify=True)
 				feat_val = feat_val + z
 			y = feat_val / torch.tensor(float(NUM_STEPS), requires_grad=True)
-			y = y * torch.tensor(self.environment.weights[-n_learned+i:], requires_grad=True) * torch.norm(x[self.num_dofs:] - x[:self.num_dofs])
+			y = y.cpu() * torch.tensor(self.environment.weights[-n_learned+i:], requires_grad=True) * torch.norm(x[self.num_dofs:] - x[:self.num_dofs])
 			y.backward()
 			J.append(x.grad.data.cpu().numpy())
 		return np.sum(np.array(J), axis = 0).reshape((1,-1))
